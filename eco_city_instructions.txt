@@ -1,0 +1,37 @@
+
+WELCOME TO SMART ECO CITY BUILDER!
+
+Hello, [Player Name]! 🌱
+
+Your mission: Create, manage, and expand an environmentally sustainable virtual city! 🏙️🚀
+
+HOW TO PLAY:
+1. Earn Eco-Points by performing eco-friendly actions like recycling, planting trees, and building green transport.
+2. Collect enough Eco-Points to upgrade your city's level and unlock new features.
+3. Strategically balance city growth and environmental sustainability.
+
+ECO-POINTS SYSTEM:
+- +10 Eco-Points: Building green spaces 🌳
+- +15 Eco-Points: Installing solar panels ☀️
+- +20 Eco-Points: Upgrading public transport 🚍
+- -10 Eco-Points: Causing pollution ❌
+- -15 Eco-Points: Ignoring environmental issues ⚠️
+
+LEVELS BASED ON ECO-POINTS:
+- Level 1-3: Basic Eco-City Setup (Earn 100 Eco-Points)
+- Level 4-6: Growing Green Infrastructure (Earn 300 Eco-Points)
+- Level 7-9: High-Tech Smart Eco-City (Earn 600 Eco-Points)
+- Level 10: Eco Utopia! (Earn 1000+ Eco-Points)
+
+YOUR GOAL:
+Maximize your Eco-Points to evolve your city into a Smart Eco Utopia without harming the environment!
+
+⚠️ WARNING:
+Negative Eco-Points can downgrade your city or delay your progress!
+
+TIPS:
+- Stay green: Focus on renewable energy and sustainable transport.
+- Monitor your Eco-Score frequently.
+- Handle environmental alerts quickly to avoid penalties.
+
+Good luck, Eco Hero! Build a greener tomorrow, today! 🌿
