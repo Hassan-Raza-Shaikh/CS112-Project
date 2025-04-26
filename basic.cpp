@@ -124,7 +124,7 @@ void endgame()
 void instructions()
 {
     string filename = "eco_city_instructions.txt";
-   displayInstructions(filename);
+    displayInstructions(filename);
 }
 
 void check_ecopoints(int &ecopoints, int &level)
@@ -225,10 +225,6 @@ class car : public transport
 {
 
 };
-
-
-
-
 
 int main()
 {

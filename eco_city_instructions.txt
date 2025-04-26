@@ -1,13 +1,13 @@
 
 WELCOME TO SMART ECO CITY BUILDER!
 
-Hello, [Player Name]! 🌱
+Hello! 🌱
 
 Your mission: Create, manage, and expand an environmentally sustainable virtual city! 🏙️🚀
 
 HOW TO PLAY:
-1. Earn Eco-Points by performing eco-friendly actions like recycling, planting trees, and building green transport.
-2. Collect enough Eco-Points to upgrade your city's level and unlock new features.
+1. Earn Eco-Points by performing eco-friendly actions like planting trees, and building green transport, etc.
+2. Collect enough Eco-Points to upgrade your city's level.
 3. Strategically balance city growth and environmental sustainability.
 
 ECO-POINTS SYSTEM:

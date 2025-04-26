@@ -1,0 +1,13 @@
+name: 
+level: 1
+ecopoints: 0
+funds: 500
+house- 0
+hospital- 0
+office- 0
+restaurant- 0
+school- 0
+bank- 0
+casino- 0
+vehicle- 0
+pollutionlevel- 0
