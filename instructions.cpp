@@ -1,4 +1,3 @@
-// eco_instructions.h or eco_instructions.cpp
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -7,7 +6,6 @@
 
 using namespace std;
 
-// Helper Functions
 void typingEffect(const string& text, int speed = 30) {
     for (char c : text) {
         cout << c << flush;
@@ -44,7 +42,6 @@ void printNormal(const string& line) {
     typingEffect(line, 30);
 }
 
-// 📄 Master Function you will call from other files
 void displayInstructions(const string& filename) {
     ifstream file(filename);
     string line;
