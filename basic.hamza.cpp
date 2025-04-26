@@ -22,8 +22,44 @@ void filecreation_opening(string &filename, fstream &ufile, int &level)
     filename = name + "_" + pin + ".txt";
     cout << "Filename: " << filename << endl;
 
-    ufile.open(filename, ios::in | ios::out | ios::app);
+    ufile.open(filename, ios::in);
+ 
+
+
+
+    if (ufile.fail())
+    {
+        cout << "File not found. Creating a new file..." << endl;
+        ufile.clear(); // Clear the fail state
+        ufile.open(filename, ios::out); // Create new file
+
+        // Initialize the file with basic information
+        ufile << "name:\n";
+        ufile << "level:0\n";
+        ufile << "ecopoints:0\n";
+        ufile << "funds:500\n";
+        ufile << "house-1\n";
+        ufile << "hospital-0\n";
+        ufile << "office-0\n";
+        ufile << "restaurant-0\n";
+        ufile << "school-0\n";
+        ufile << "bank-0\n";
+        ufile << "casino-0\n";
+        ufile << "vehicle-0\n";
+        ufile << "pollutionlevel-0\n";
+        
+        ufile.close(); // Close after writing
+
+        // Reopen for reading and writing
+        ufile.open(filename, ios::in | ios::out);
+    }
+    else
+    {
+        cout << "File found and opened successfully!" << endl;
+    }
 }
+
+
 
 void instructions()
 {
