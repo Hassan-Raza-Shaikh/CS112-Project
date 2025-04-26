@@ -1,3 +1,4 @@
+// eco_instructions.h or eco_instructions.cpp
 #include <iostream>
 #include <fstream>
 #include <string>
@@ -6,7 +7,7 @@
 
 using namespace std;
 
-// Typing effect: character-by-character printing
+// Helper Functions
 void typingEffect(const string& text, int speed = 30) {
     for (char c : text) {
         cout << c << flush;
@@ -15,7 +16,6 @@ void typingEffect(const string& text, int speed = 30) {
     cout << endl;
 }
 
-// Different printing styles
 void printTitle(const string& title) {
     cout << "\033[1;32m"; // Green
     typingEffect(title, 20);
@@ -44,7 +44,7 @@ void printNormal(const string& line) {
     typingEffect(line, 30);
 }
 
-// 📄 Function to display instructions
+// 📄 Master Function you will call from other files
 void displayInstructions(const string& filename) {
     ifstream file(filename);
     string line;
@@ -64,7 +64,7 @@ void displayInstructions(const string& filename) {
             else if (line.find("WARNING") != string::npos) {
                 printWarning(line);
             }
-            else if (line.find("-") == 0) {
+            else if (!line.empty() && line[0] == '-') {
                 printTips(line);
             }
             else {
@@ -79,17 +79,4 @@ void displayInstructions(const string& filename) {
     cout << "\n\033[1;36mPress Enter to continue...\033[0m";
     cin.ignore();
     cin.get();
-}
-
-// 🚀 Main Function
-int main() {
-    string filename = "eco_city_instructions.txt";
-
-    // Call the display function
-    displayInstructions(filename);
-
-    // After instructions, you can continue with your game logic
-    cout << "\nStarting Smart Eco City Simulation... 🌎🏙️" << endl;
-
-    return 0;
 }
