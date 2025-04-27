@@ -262,9 +262,9 @@ class hospitals : public buildings
                 }
             };
             
-    
+    */
 
-};*/
+};
 class restaurants : public buildings
 {
 
