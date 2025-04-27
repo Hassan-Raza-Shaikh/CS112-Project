@@ -121,12 +121,13 @@ void endgame()
     cout << "Game Over! You have reached the maximum level." << endl;
     exit(0);
 }
-void instructions()
-{
+void instructions() {
+    
     string filename = "eco_city_instructions.txt";
+    //string filename = "C:/Users/hamzz/OneDrive/Documents/GitHub/CS112-Project/eco_city_instructions.txt"; // for hamza
+    
     displayInstructions(filename);
 }
-
 void check_ecopoints(int &ecopoints, int &level)
 {
     if (ecopoints == 0)
