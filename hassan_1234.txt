@@ -1,5 +1,5 @@
 name: 
-level: 1
+level: 0
 ecopoints: 0
 funds: 500
 house- 0

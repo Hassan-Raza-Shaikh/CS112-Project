@@ -1,276 +1,302 @@
 #include <iostream>
-#include <string>
 #include <fstream>
 #include <sstream>
+#include <string>
+#include <chrono>
+#include <thread>
+#include <ctime>
 #include "instructions.cpp"
 using namespace std;
 
-void filecreation_opening(string &filename, fstream &ufile, int &level, int &ecopoints, int &funds,
-                          int &house, int &hospital, int &office, int &restaurant,
-                          int &school, int &bank, int &casino, int &vehicle, int &pollutionlevel)
-{
-    string name, last4digits;
-    string pin;
-    cout << "Enter your name: " << endl;
-    getline(cin, name);
-    for (char &c : name)
-    {
-        c = tolower(c);
+// --------- Building Classes ---------
+class House {
+public:
+    void enter() {
+        cout << "Welcome to your House!\n";
+        cout << "Here you can rest and upgrade your living space.\n";
     }
+};
 
-    cout << "Enter your pin (4 digits) " << endl;
-    cin >> pin;
-    cin.ignore();
+class Hospital {
+public:
+    void enter() {
+        cout << "Welcome to the Hospital!\n";
+        cout << "You can heal here or help others to gain eco points.\n";
+    }
+};
 
-    filename = name + "_" + pin + ".txt";
-    cout << "Filename: " << filename << endl;
+class Office {
+public:
+    void enter() {
+        cout << "Welcome to your Office!\n";
+        cout << "Work to earn funds and reputation.\n";
+    }
+};
 
-    ufile.open(filename, ios::in);
+class Restaurant {
+public:
+    void enter() {
+        cout << "Welcome to the Restaurant!\n";
+        cout << "Relax and socialize here.\n";
+    }
+};
 
-    if (ufile.fail())
+class School {
+public:
+    void enter() {
+        cout << "Welcome to the School!\n";
+        cout << "Learn and earn eco points for knowledge.\n";
+    }
+};
+
+class Bank {
+public:
+    void enter() {
+        cout << "Welcome to the Bank!\n";
+        cout << "Manage your funds wisely.\n";
+    }
+};
+
+class Casino {
+public:
+    void enter() {
+        cout << "Welcome to the Casino!\n";
+        cout << "Gamble your funds for a chance to win big (or lose!).\n";
+    }
+};
+// --------------------------------------
+
+
+// ---------- File Saving & Loading ----------
+void save_game(string filename, int level, int ecopoints, int funds, int house, int hospital, int office, int restaurant,
+               int school, int bank, int casino, int vehicle, int pollutionlevel, time_t lastSaveTime)
+{
+    ofstream ufile(filename);
+    if (ufile.is_open())
     {
-        cout << "File not found. Creating a new file..." << endl;
-        ufile.clear();                  // Clear the fail state
-        ufile.open(filename, ios::out); // Create new file
-
-        // Initialize the file with basic information
-        ufile << "name: \n";
-        ufile << "level: 0\n";
-        ufile << "ecopoints: 0\n";
-        ufile << "funds: 500\n";
-        ufile << "house- 1\n";
-        ufile << "hospital- 0\n";
-        ufile << "office- 0\n";
-        ufile << "restaurant- 0\n";
-        ufile << "school- 0\n";
-        ufile << "bank- 0\n";
-        ufile << "casino- 0\n";
-        ufile << "vehicle- 0\n";
-        ufile << "pollutionlevel- 0\n";
-        ufile.close(); // Close after writing
-
-        // Reopen for reading and writing
-        ufile.open(filename, ios::in | ios::out);
+        ufile << "level: " << level << endl;
+        ufile << "ecopoints: " << ecopoints << endl;
+        ufile << "funds: " << funds << endl;
+        ufile << "house: " << house << endl;
+        ufile << "hospital: " << hospital << endl;
+        ufile << "office: " << office << endl;
+        ufile << "restaurant: " << restaurant << endl;
+        ufile << "school: " << school << endl;
+        ufile << "bank: " << bank << endl;
+        ufile << "casino: " << casino << endl;
+        ufile << "vehicle: " << vehicle << endl;
+        ufile << "pollutionlevel: " << pollutionlevel << endl;
+        ufile << "lastSaveTime: " << lastSaveTime << endl;
+        ufile.close();
     }
     else
     {
-        cout << "File found and opened successfully!" << endl;
+        cout << "Error saving game!" << endl;
+    }
+}
+
+bool load_game(string filename, int &level, int &ecopoints, int &funds,
+               int &house, int &hospital, int &office, int &restaurant,
+               int &school, int &bank, int &casino, int &vehicle, int &pollutionlevel, time_t &lastSaveTime)
+{
+    ifstream ufile(filename);
+    if (ufile.is_open())
+    {
         string line;
         while (getline(ufile, line))
         {
             stringstream ss(line);
             string label;
-            ss >> label; // Read the label (e.g., "name:", "level:", etc.)
-
+            ss >> label;
             if (label == "level:")
-            {
                 ss >> level;
-            }
             else if (label == "ecopoints:")
-            {
                 ss >> ecopoints;
-            }
             else if (label == "funds:")
-            {
                 ss >> funds;
-            }
-            else if (label == "house-1")
-            {
+            else if (label == "house:")
                 ss >> house;
-            }
-            else if (label == "hospital-0")
-            {
+            else if (label == "hospital:")
                 ss >> hospital;
-            }
-            else if (label == "office-0")
-            {
+            else if (label == "office:")
                 ss >> office;
-            }
-            else if (label == "restaurant-0")
-            {
+            else if (label == "restaurant:")
                 ss >> restaurant;
-            }
-            else if (label == "school-0")
-            {
+            else if (label == "school:")
                 ss >> school;
-            }
-            else if (label == "bank-0")
-            {
+            else if (label == "bank:")
                 ss >> bank;
-            }
-            else if (label == "casino-0")
-            {
+            else if (label == "casino:")
                 ss >> casino;
-            }
-            else if (label == "vehicle-0")
-            {
+            else if (label == "vehicle:")
                 ss >> vehicle;
-            }
-            else if (label == "pollutionlevel-0")
-            {
+            else if (label == "pollutionlevel:")
                 ss >> pollutionlevel;
-            }
+            else if (label == "lastSaveTime:")
+                ss >> lastSaveTime;
         }
-
-        ufile.close(); // Close the file
-    }
-}
-void exit_game(string &filename, fstream &ufile, int &level, int &ecopoints, int &funds,
-               int &house, int &hospital, int &office, int &restaurant,
-               int &school, int &bank, int &casino, int &vehicle, int &pollutionlevel)
-{
-    cout << "Exiting the game..." << endl;
-    ufile.open(filename, ios::out); // Create new file
-
-        // Initialize the file with basic information
-        ufile << "name: "<<endl;
-        ufile << "level: "<<level<<endl;
-        ufile << "ecopoints: "<<ecopoints<<endl;
-        ufile << "funds: "<<funds<<endl;
-        ufile << "house- "<<house<<endl;
-        ufile << "hospital- "<<hospital<<endl;
-        ufile << "office- "<<office<<endl;
-        ufile << "restaurant- "<<restaurant<<endl;
-        ufile << "school- "<<school<<endl;
-        ufile << "bank- "<<bank<<endl;
-        ufile << "casino- "<<casino<<endl;
-        ufile << "vehicle- "<<vehicle<<endl;
-        ufile << "pollutionlevel- "<<pollutionlevel<<endl;
-        
-
-        ufile.close(); // Close after writing
-    exit(0);
-}
-void endgame()
-{
-    cout << "Game Over! You have reached the maximum level." << endl;
-    exit(0);
-}
-void instructions(int &level)
-{
-    string filename = "eco_city_instructions.txt";
-    displayInstructions(filename);
-    level++;
-}
-
-void check_ecopoints(int &ecopoints, int &level)
-{
-    if (ecopoints == 0)
-    {
-        level = 0;
-    }
-    else if (ecopoints >= 100)
-    {
-        level = 1;
-    }
-    else if (ecopoints >= 200)
-    {
-        level = 2;
-    }
-    else if (ecopoints >= 300)
-    {
-        level = 3;
-    }
-    else if (ecopoints >= 400)
-    {
-        level = 4;
-    }
-    else if (ecopoints >= 500)
-    {
-        level = 5;
-    }
-    else if (ecopoints >= 600)
-    {
-        level = 6;
-    }
-    else if (ecopoints >= 700)
-    {
-        level = 7;
-    }
-    else if (ecopoints >= 800)
-    {
-        level = 8;
-    }
-    else if (ecopoints >= 900)
-    {
-        level = 9;
+        ufile.close();
+        return true;
     }
     else
     {
-        level = 10;
-        endgame();
+        cout << "No existing file. New game will start." << endl;
+        funds = 500;
+        lastSaveTime = time(nullptr);
+        level = 0;
+        return false;
     }
 }
 
-class buildings
+// ----------- Fund Management -----------
+void offline_bonus(int &funds, time_t &lastSaveTime)
 {
+    time_t now = time(nullptr);
+    double seconds_passed = difftime(now, lastSaveTime);
+    double days_passed = seconds_passed / (60 * 60 * 24);
 
-};
-class houses : public buildings
+    int bonus = static_cast<int>(days_passed * 1000);
+    if (bonus > 0)
+    {
+        cout << "You received an offline bonus of " << bonus << " funds!" << endl;
+        funds += bonus;
+    }
+
+    lastSaveTime = now;
+}
+
+void update_funds_periodically(int &funds, time_t &lastUpdateTime)
 {
+    time_t now = time(nullptr);
+    if (difftime(now, lastUpdateTime) >= 60) // 60 seconds
+    {
+        funds += 10;
+        lastUpdateTime = now;
+        cout << "(+10 funds for being active!) Current funds: " << funds << endl;
+    }
+}
 
-};
-class offices : public buildings
+void transport_delay(int vehicle)
 {
+    if (vehicle == 0) // Walking
+    {
+        cout << "Walking... Please wait 10 seconds.\n";
+        this_thread::sleep_for(chrono::seconds(10));
+    }
+    else if (vehicle == 1) // Cycling
+    {
+        cout << "Cycling... Please wait 5 seconds.\n";
+        this_thread::sleep_for(chrono::seconds(5));
+    }
+    else if (vehicle == 2) // Car
+    {
+        cout << "Driving... Immediate arrival!\n";
+    }
+}
 
-};
-class schools : public buildings
+// ------------ Main Menu ------------
+void menu(int &funds, int &vehicle, int &level, time_t &lastUpdateTime)
 {
+    while (true)
+    {
+        update_funds_periodically(funds, lastUpdateTime);
 
-};
-class hospitals : public buildings
-{
+        cout << "\n--- Eco City Menu ---\n";
+        cout << "1. Go to House\n";
+        cout << "2. Go to Hospital\n";
+        cout << "3. Go to Office\n";
+        cout << "4. Go to Restaurant\n";
+        cout << "5. Go to School\n";
+        cout << "6. Go to Bank\n";
+        cout << "7. Go to Casino\n";
+        cout << "8. Change Transport Mode (Walk / Cycle / Car)\n";
+        cout << "9. View Instructions\n";
+        cout << "0. Save and Exit\n";
+        cout << "Enter your choice: ";
+        int choice;
+        cin >> choice;
 
-};
-class restaurants : public buildings
-{
+        switch (choice)
+        {
+        case 1:
+            transport_delay(vehicle);
+            House().enter();
+            break;
+        case 2:
+            transport_delay(vehicle);
+            Hospital().enter();
+            break;
+        case 3:
+            transport_delay(vehicle);
+            Office().enter();
+            break;
+        case 4:
+            transport_delay(vehicle);
+            Restaurant().enter();
+            break;
+        case 5:
+            transport_delay(vehicle);
+            School().enter();
+            break;
+        case 6:
+            transport_delay(vehicle);
+            Bank().enter();
+            break;
+        case 7:
+            transport_delay(vehicle);
+            Casino().enter();
+            break;
+        case 8:
+            cout << "Choose your transport:\n";
+            cout << "0. Walk\n1. Cycle\n2. Car\nChoice: ";
+            cin >> vehicle;
+            break;
+        case 9:
+            instructions();
+            break;
+        case 0:
+            return;
+        default:
+            cout << "Invalid choice. Try again!\n";
+            break;
+        }
+    }
+}
 
-};
-class banks : public buildings
-{
-
-};
-class casinos : public buildings
-{
-
-};
-class transport
-{
-
-};
-class walk : public transport
-{
-
-};
-class cycle : public transport
-{
-
-};
-class car : public transport
-{
-
-};
-
+// ------------ Main ------------
 int main()
 {
-    int level = 0, ecopoints = 0, funds = 500;
+    int level = 0, ecopoints = 0, funds = 0;
     int house = 0, hospital = 0, office = 0, restaurant = 0;
     int school = 0, bank = 0, casino = 0, vehicle = 0, pollutionlevel = 0;
-    string filename;
-    fstream ufile;
-    filecreation_opening(filename, ufile, level, ecopoints, funds,
-                         house, hospital, office, restaurant,
-                         school, bank, casino, vehicle, pollutionlevel);
-    if (level == 0)
+    time_t lastSaveTime = time(nullptr);
+    time_t lastUpdateTime = time(nullptr);
+
+    string name, pin, filename;
+    cout << "Enter your name: ";
+    getline(cin, name);
+    cout << "Enter your 4-digit PIN: ";
+    cin >> pin;
+    cin.ignore();
+
+    filename = name + "_" + pin + ".txt";
+
+    bool fileExists = load_game(filename, level, ecopoints, funds, house, hospital, office, restaurant,
+                                school, bank, casino, vehicle, pollutionlevel, lastSaveTime);
+
+    if (!fileExists)
     {
-        instructions(level);
+        instructions(); // only show for new users
+        level = 1;
     }
-    ufile.close();
-    exit_game(filename, ufile, level, ecopoints, funds,
-               house, hospital, office, restaurant,
-               school, bank, casino, vehicle, pollutionlevel);
-    cout << ecopoints<< funds<<
-    house<< hospital<< office<< restaurant<<
-    school<< bank<< casino<< vehicle<< pollutionlevel;
+
+    offline_bonus(funds, lastSaveTime);
+
+    menu(funds, vehicle, level, lastUpdateTime);
+
+    save_game(filename, level, ecopoints, funds, house, hospital, office, restaurant,
+              school, bank, casino, vehicle, pollutionlevel, time(nullptr));
+
+    cout << "Game saved. Goodbye!" << endl;
     return 0;
 }
