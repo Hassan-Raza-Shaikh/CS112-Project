@@ -1,6 +1,6 @@
 level: 0
 ecopoints: 0
-funds: 510
+funds: 0
 house: 0
 hospital: 0
 office: 0
@@ -10,4 +10,4 @@ bank: 0
 casino: 0
 vehicle: 0
 pollutionlevel: 0
-lastSaveTime: 1746010321
+lastSaveTime: 1746010702
