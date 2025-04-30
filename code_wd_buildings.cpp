@@ -428,4 +428,314 @@ class Casino {
     };
 // --------------------------------------
 
+// ---------- File Saving & Loading ----------
+void save_game(string filename, int level, int ecopoints, int funds, int house, int hospital, int office, int restaurant,
+    int school, int bank, int casino, int vehicle, int pollutionlevel, time_t lastSaveTime)
+{
+ofstream ufile(filename);
+if (ufile.is_open())
+{
+ufile << "level: " << level << endl;
+ufile << "ecopoints: " << ecopoints << endl;
+ufile << "funds: " << funds << endl;
+ufile << "house: " << house << endl;
+ufile << "hospital: " << hospital << endl;
+ufile << "office: " << office << endl;
+ufile << "restaurant: " << restaurant << endl;
+ufile << "school: " << school << endl;
+ufile << "bank: " << bank << endl;
+ufile << "casino: " << casino << endl;
+ufile << "vehicle: " << vehicle << endl;
+ufile << "pollutionlevel: " << pollutionlevel << endl;
+ufile << "lastSaveTime: " << lastSaveTime << endl;
+ufile.close();
+}
+else
+{
+cout << "Error saving game!" << endl;
+}
+}
 
+bool load_game(string filename, int &level, int &ecopoints, int &funds,
+    int &house, int &hospital, int &office, int &restaurant,
+    int &school, int &bank, int &casino, int &vehicle, int &pollutionlevel, time_t &lastSaveTime)
+{
+ifstream ufile(filename);
+if (ufile.is_open())
+{
+string line;
+while (getline(ufile, line))
+{
+ stringstream ss(line);
+ string label;
+ ss >> label;
+ if (label == "level:")
+     ss >> level;
+ else if (label == "ecopoints:")
+     ss >> ecopoints;
+ else if (label == "funds:")
+     ss >> funds;
+ else if (label == "house:")
+     ss >> house;
+ else if (label == "hospital:")
+     ss >> hospital;
+ else if (label == "office:")
+     ss >> office;
+ else if (label == "restaurant:")
+     ss >> restaurant;
+ else if (label == "school:")
+     ss >> school;
+ else if (label == "bank:")
+     ss >> bank;
+ else if (label == "casino:")
+     ss >> casino;
+ else if (label == "vehicle:")
+     ss >> vehicle;
+ else if (label == "pollutionlevel:")
+     ss >> pollutionlevel;
+ else if (label == "lastSaveTime:")
+     ss >> lastSaveTime;
+}
+ufile.close();
+return true;
+}
+else
+{
+cout << "No existing file. New game will start." << endl;
+funds = 500;
+lastSaveTime = time(nullptr);
+level = 0;
+return false;
+}
+}
+
+// ----------- Fund Management -----------
+void offline_bonus(int &funds, time_t &lastSaveTime)
+{
+time_t now = time(nullptr);
+double seconds_passed = difftime(now, lastSaveTime);
+double days_passed = seconds_passed / (60 * 60 * 24);
+
+int bonus = static_cast<int>(days_passed * OFFLINE_BONUS_PER_DAY);
+if (bonus > 0)
+{
+cout << "You received an offline bonus of " << bonus << " funds!" << endl;
+funds += bonus;
+}
+
+lastSaveTime = now;
+}
+
+void update_funds_periodically(int &funds, time_t &lastUpdateTime)
+{
+time_t now = time(nullptr);
+if (difftime(now, lastUpdateTime) >= PERIODIC_FUNDS_INTERVAL)
+{
+funds += PERIODIC_FUNDS_REWARD;
+lastUpdateTime = now;
+cout << "(+" << PERIODIC_FUNDS_REWARD << " funds for being active!) Current funds: " << funds << endl;
+}
+}
+
+void transport_delay(int vehicle)
+{
+if (vehicle == 0) // Walking
+{
+cout << "Walking... Please wait " << WALK_DELAY << " seconds.\n";
+this_thread::sleep_for(chrono::seconds(WALK_DELAY));
+}
+else if (vehicle == 1) // Cycling
+{
+cout << "Cycling... Please wait " << CYCLE_DELAY << " seconds.\n";
+this_thread::sleep_for(chrono::seconds(CYCLE_DELAY));
+}
+else if (vehicle == 2) // Car
+{
+cout << "Driving... Immediate arrival!\n";
+this_thread::sleep_for(chrono::seconds(CAR_DELAY));
+}
+}
+
+// --------- Status Display Functions ---------
+void clearScreen() {
+#ifdef _WIN32
+system("cls");
+#else
+system("clear");
+#endif
+}
+
+void displayStatusBar(int value, int max, const string& label, const string& color) {
+const int barWidth = 20;
+int filled = (value * barWidth) / max;
+cout << color << label << ": [";
+for (int i = 0; i < barWidth; i++) {
+cout << (i < filled ? "█" : "░");
+}
+cout << "] " << value << "/" << max << "\033[0m" << endl;
+}
+
+void displayStatus(int funds, int health, int hunger, int level, int levelPoints, int ecoPoints, int pollutionLevel) {
+clearScreen();
+cout << "\n=== Eco City Status ===\n";
+cout << "💰 Funds: " << funds << endl;
+displayStatusBar(health, MAX_HEALTH, "Health", "\033[1;31m");
+displayStatusBar(hunger, MAX_HUNGER, "Hunger", "\033[1;33m");
+cout << "📊 Level: " << level << " (Points: " << levelPoints << "/" << LEVEL_UP_THRESHOLD << ")" << endl;
+cout << "🌱 Eco Points: " << ecoPoints << endl;
+cout << "🌫️ Pollution Level: " << pollutionLevel << endl;
+cout << "=====================\n\n";
+}
+
+void updateLevel(int& level, int& levelPoints, int ecoPoints, int pollutionLevel) {
+levelPoints = ecoPoints - (pollutionLevel * POLLUTION_PENALTY);
+if (levelPoints < 0) levelPoints = 0;
+
+int newLevel = levelPoints / LEVEL_UP_THRESHOLD;
+if (newLevel > level) {
+level = newLevel;
+cout << "\n🎉 Level Up! You are now level " << level << "!\n";
+}
+}
+
+void updateHungerAndHealth(int& health, int& hunger, time_t& lastUpdateTime) {
+time_t now = time(nullptr);
+double minutesPassed = difftime(now, lastUpdateTime) / 60;
+
+if (minutesPassed >= 1) {
+hunger -= static_cast<int>(minutesPassed * HUNGER_DECREASE_RATE);
+if (hunger < 0) hunger = 0;
+
+if (hunger == 0) {
+ health -= static_cast<int>(minutesPassed * HEALTH_DECREASE_RATE);
+ if (health < 0) health = 0;
+}
+
+lastUpdateTime = now;
+}
+}
+
+// ------------ Main Menu ------------
+void menu(int &funds, int &vehicle, int &level, time_t &lastUpdateTime, int &ecopoints, int &health, int &hunger, int &levelPoints, int &pollutionLevel)
+{
+time_t lastHealthUpdate = time(nullptr);
+int initialFunds = funds;
+
+while (true)
+{
+update_funds_periodically(funds, lastUpdateTime);
+updateHungerAndHealth(health, hunger, lastHealthUpdate);
+updateLevel(level, levelPoints, ecopoints, pollutionLevel);
+displayStatus(funds, health, hunger, level, levelPoints, ecopoints, pollutionLevel);
+
+cout << "\n--- Eco City Menu ---\n";
+cout << "1. Go to House\n";
+cout << "2. Go to Hospital\n";
+cout << "3. Go to Office\n";
+cout << "4. Go to Restaurant\n";
+cout << "5. Go to School\n";
+cout << "6. Go to Bank\n";
+cout << "7. Go to Casino\n";
+cout << "8. Change Transport Mode (Walk / Cycle / Car)\n";
+cout << "9. View Instructions\n";
+cout << "0. Save and Exit\n";
+cout << "Enter your choice: ";
+int choice;
+cin >> choice;
+
+int netFunds = funds - initialFunds;
+
+switch (choice)
+{
+case 1:
+ transport_delay(vehicle);
+ House(funds, ecopoints, health, hunger).enter();
+ break;
+case 2:
+ transport_delay(vehicle);
+ Hospital(funds, health).enter();
+ break;
+case 3:
+ transport_delay(vehicle);
+ Office(funds).enter();
+ break;
+case 4:
+ transport_delay(vehicle);
+ Restaurant(funds, ecopoints).enter();
+ break;
+case 5:
+ transport_delay(vehicle);
+ School(ecopoints).enter();
+ break;
+case 6:
+ transport_delay(vehicle);
+ Bank(funds).enter();
+ break;
+case 7:
+ transport_delay(vehicle);
+ Casino(funds).enter();
+ break;
+case 8:
+ cout << "Choose your transport:\n";
+ cout << "0. Walk\n1. Cycle\n2. Car\nChoice: ";
+ cin >> vehicle;
+ break;
+case 9:
+ displayInstructions("eco_city_instructions.txt");
+ break;
+case 0:
+ clearScreen();
+ cout << "\n=== Game Summary ===\n";
+ cout << "💰 Funds: " << funds << " (" << (netFunds >= 0 ? "+" : "") << netFunds << ")\n";
+ cout << "❤️ Health: " << health << "/" << MAX_HEALTH << "\n";
+ cout << "🍽️ Hunger: " << hunger << "/" << MAX_HUNGER << "\n";
+ cout << "📊 Level: " << level << " (Points: " << levelPoints << "/" << LEVEL_UP_THRESHOLD << ")\n";
+ cout << "🌱 Eco Points: " << ecopoints << "\n";
+ cout << "🌫️ Pollution Level: " << pollutionLevel << "\n";
+ cout << "===================\n\n";
+ return;
+default:
+ cout << "Invalid choice. Try again!\n";
+ break;
+}
+}
+}
+
+// ------------ Main ------------
+int main()
+{
+int level = 0, ecopoints = 0, funds = 0;
+int health = MAX_HEALTH, hunger = MAX_HUNGER, levelPoints = 0;
+int house = 0, hospital = 0, office = 0, restaurant = 0;
+int school = 0, bank = 0, casino = 0, vehicle = 0, pollutionlevel = 0;
+time_t lastSaveTime = time(nullptr);
+time_t lastUpdateTime = time(nullptr);
+
+string name, pin, filename;
+cout << "Enter your name: ";
+getline(cin, name);
+cout << "Enter your 4-digit PIN: ";
+cin >> pin;
+cin.ignore();
+
+filename = name + "_" + pin + ".txt";
+
+bool fileExists = load_game(filename, level, ecopoints, funds, house, hospital, office, restaurant,
+                     school, bank, casino, vehicle, pollutionlevel, lastSaveTime);
+
+if (!fileExists)
+{
+displayInstructions("eco_city_instructions.txt"); // only show for new users
+level = 1;
+}
+
+offline_bonus(funds, lastSaveTime);
+
+menu(funds, vehicle, level, lastUpdateTime, ecopoints, health, hunger, levelPoints, pollutionlevel);
+
+save_game(filename, level, ecopoints, funds, house, hospital, office, restaurant,
+   school, bank, casino, vehicle, pollutionlevel, time(nullptr));
+
+cout << "Game saved. Goodbye!" << endl;
+return 0;
+}
