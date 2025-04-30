@@ -76,10 +76,10 @@ void transport_delay(int vehicle);
 void update_funds_periodically(int &funds, time_t &lastUpdateTime);
 void offline_bonus(int &funds, time_t &lastSaveTime);
 void save_game(string filename, int level, int ecopoints, int funds, int house, int hospital, int office, int restaurant,
-               int school, int bank, int casino, int vehicle, int pollutionlevel, time_t lastSaveTime);
+               int school, int bank, int casino, int vehicle, int pollutionlevel, time_t lastSaveTime, int levelPoints);
 bool load_game(string filename, int &level, int &ecopoints, int &funds,
                int &house, int &hospital, int &office, int &restaurant,
-               int &school, int &bank, int &casino, int &vehicle, int &pollutionlevel, time_t &lastSaveTime);
+               int &school, int &bank, int &casino, int &vehicle, int &pollutionlevel, time_t &lastSaveTime, int &levelPoints);
 
 // --------- Building Classes ---------
 /**
@@ -430,83 +430,87 @@ class Casino {
 
 // ---------- File Saving & Loading ----------
 void save_game(string filename, int level, int ecopoints, int funds, int house, int hospital, int office, int restaurant,
-    int school, int bank, int casino, int vehicle, int pollutionlevel, time_t lastSaveTime)
+               int school, int bank, int casino, int vehicle, int pollutionlevel, time_t lastSaveTime, int levelPoints)
 {
-ofstream ufile(filename);
-if (ufile.is_open())
-{
-ufile << "level: " << level << endl;
-ufile << "ecopoints: " << ecopoints << endl;
-ufile << "funds: " << funds << endl;
-ufile << "house: " << house << endl;
-ufile << "hospital: " << hospital << endl;
-ufile << "office: " << office << endl;
-ufile << "restaurant: " << restaurant << endl;
-ufile << "school: " << school << endl;
-ufile << "bank: " << bank << endl;
-ufile << "casino: " << casino << endl;
-ufile << "vehicle: " << vehicle << endl;
-ufile << "pollutionlevel: " << pollutionlevel << endl;
-ufile << "lastSaveTime: " << lastSaveTime << endl;
-ufile.close();
-}
-else
-{
-cout << "Error saving game!" << endl;
-}
+    ofstream ufile(filename);
+    if (ufile.is_open())
+    {
+        ufile << "level: " << level << endl;
+        ufile << "ecopoints: " << ecopoints << endl;
+        ufile << "funds: " << funds << endl;
+        ufile << "house: " << house << endl;
+        ufile << "hospital: " << hospital << endl;
+        ufile << "office: " << office << endl;
+        ufile << "restaurant: " << restaurant << endl;
+        ufile << "school: " << school << endl;
+        ufile << "bank: " << bank << endl;
+        ufile << "casino: " << casino << endl;
+        ufile << "vehicle: " << vehicle << endl;
+        ufile << "pollutionlevel: " << pollutionlevel << endl;
+        ufile << "lastSaveTime: " << lastSaveTime << endl;
+        ufile << "levelPoints: " << levelPoints << endl;
+        ufile.close();
+    }
+    else
+    {
+        cout << "Error saving game!" << endl;
+    }
 }
 
 bool load_game(string filename, int &level, int &ecopoints, int &funds,
-    int &house, int &hospital, int &office, int &restaurant,
-    int &school, int &bank, int &casino, int &vehicle, int &pollutionlevel, time_t &lastSaveTime)
+               int &house, int &hospital, int &office, int &restaurant,
+               int &school, int &bank, int &casino, int &vehicle, int &pollutionlevel, time_t &lastSaveTime, int &levelPoints)
 {
-ifstream ufile(filename);
-if (ufile.is_open())
-{
-string line;
-while (getline(ufile, line))
-{
- stringstream ss(line);
- string label;
- ss >> label;
- if (label == "level:")
-     ss >> level;
- else if (label == "ecopoints:")
-     ss >> ecopoints;
- else if (label == "funds:")
-     ss >> funds;
- else if (label == "house:")
-     ss >> house;
- else if (label == "hospital:")
-     ss >> hospital;
- else if (label == "office:")
-     ss >> office;
- else if (label == "restaurant:")
-     ss >> restaurant;
- else if (label == "school:")
-     ss >> school;
- else if (label == "bank:")
-     ss >> bank;
- else if (label == "casino:")
-     ss >> casino;
- else if (label == "vehicle:")
-     ss >> vehicle;
- else if (label == "pollutionlevel:")
-     ss >> pollutionlevel;
- else if (label == "lastSaveTime:")
-     ss >> lastSaveTime;
-}
-ufile.close();
-return true;
-}
-else
-{
-cout << "No existing file. New game will start." << endl;
-funds = 500;
-lastSaveTime = time(nullptr);
-level = 0;
-return false;
-}
+    ifstream ufile(filename);
+    if (ufile.is_open())
+    {
+        string line;
+        while (getline(ufile, line))
+        {
+            stringstream ss(line);
+            string label;
+            ss >> label;
+            if (label == "level:")
+                ss >> level;
+            else if (label == "ecopoints:")
+                ss >> ecopoints;
+            else if (label == "funds:")
+                ss >> funds;
+            else if (label == "house:")
+                ss >> house;
+            else if (label == "hospital:")
+                ss >> hospital;
+            else if (label == "office:")
+                ss >> office;
+            else if (label == "restaurant:")
+                ss >> restaurant;
+            else if (label == "school:")
+                ss >> school;
+            else if (label == "bank:")
+                ss >> bank;
+            else if (label == "casino:")
+                ss >> casino;
+            else if (label == "vehicle:")
+                ss >> vehicle;
+            else if (label == "pollutionlevel:")
+                ss >> pollutionlevel;
+            else if (label == "lastSaveTime:")
+                ss >> lastSaveTime;
+            else if (label == "levelPoints:")
+                ss >> levelPoints;
+        }
+        ufile.close();
+        return true;
+    }
+    else
+    {
+        cout << "No existing file. New game will start." << endl;
+        funds = 500;
+        lastSaveTime = time(nullptr);
+        level = 0;
+        levelPoints = 0;
+        return false;
+    }
 }
 
 // ----------- Fund Management -----------
@@ -588,14 +592,18 @@ cout << "=====================\n\n";
 }
 
 void updateLevel(int& level, int& levelPoints, int ecoPoints, int pollutionLevel) {
-levelPoints = ecoPoints - (pollutionLevel * POLLUTION_PENALTY);
-if (levelPoints < 0) levelPoints = 0;
-
-int newLevel = levelPoints / LEVEL_UP_THRESHOLD;
-if (newLevel > level) {
-level = newLevel;
-cout << "\n🎉 Level Up! You are now level " << level << "!\n";
-}
+    // Calculate level points based on eco points and pollution
+    levelPoints = ecoPoints - (pollutionLevel * POLLUTION_PENALTY);
+    if (levelPoints < 0) levelPoints = 0;
+    
+    // Calculate new level (100 points = level 1, 200 points = level 2, etc.)
+    int newLevel = (levelPoints / 100) + 1;
+    
+    if (newLevel > level) {
+        level = newLevel;
+        cout << "\n🎉 Level Up! You are now level " << level << "!\n";
+        cout << "You need " << (level * 100) << " points for the next level.\n";
+    }
 }
 
 void updateHungerAndHealth(int& health, int& hunger, time_t& lastUpdateTime) {
@@ -704,38 +712,38 @@ default:
 // ------------ Main ------------
 int main()
 {
-int level = 0, ecopoints = 0, funds = 0;
-int health = MAX_HEALTH, hunger = MAX_HUNGER, levelPoints = 0;
-int house = 0, hospital = 0, office = 0, restaurant = 0;
-int school = 0, bank = 0, casino = 0, vehicle = 0, pollutionlevel = 0;
-time_t lastSaveTime = time(nullptr);
-time_t lastUpdateTime = time(nullptr);
+    int level = 0, ecopoints = 0, funds = 0;
+    int health = MAX_HEALTH, hunger = MAX_HUNGER, levelPoints = 0;
+    int house = 0, hospital = 0, office = 0, restaurant = 0;
+    int school = 0, bank = 0, casino = 0, vehicle = 0, pollutionlevel = 0;
+    time_t lastSaveTime = time(nullptr);
+    time_t lastUpdateTime = time(nullptr);
 
-string name, pin, filename;
-cout << "Enter your name: ";
-getline(cin, name);
-cout << "Enter your 4-digit PIN: ";
-cin >> pin;
-cin.ignore();
+    string name, pin, filename;
+    cout << "Enter your name: ";
+    getline(cin, name);
+    cout << "Enter your 4-digit PIN: ";
+    cin >> pin;
+    cin.ignore();
 
-filename = name + "_" + pin + ".txt";
+    filename = name + "_" + pin + ".txt";
 
-bool fileExists = load_game(filename, level, ecopoints, funds, house, hospital, office, restaurant,
-                     school, bank, casino, vehicle, pollutionlevel, lastSaveTime);
+    bool fileExists = load_game(filename, level, ecopoints, funds, house, hospital, office, restaurant,
+                                school, bank, casino, vehicle, pollutionlevel, lastSaveTime, levelPoints);
 
-if (!fileExists)
-{
-displayInstructions("eco_city_instructions.txt"); // only show for new users
-level = 1;
-}
+    if (!fileExists)
+    {
+        displayInstructions("eco_city_instructions.txt"); // only show for new users
+        level = 1;
+    }
 
-offline_bonus(funds, lastSaveTime);
+    offline_bonus(funds, lastSaveTime);
 
-menu(funds, vehicle, level, lastUpdateTime, ecopoints, health, hunger, levelPoints, pollutionlevel);
+    menu(funds, vehicle, level, lastUpdateTime, ecopoints, health, hunger, levelPoints, pollutionlevel);
 
-save_game(filename, level, ecopoints, funds, house, hospital, office, restaurant,
-   school, bank, casino, vehicle, pollutionlevel, time(nullptr));
+    save_game(filename, level, ecopoints, funds, house, hospital, office, restaurant,
+              school, bank, casino, vehicle, pollutionlevel, time(nullptr), levelPoints);
 
-cout << "Game saved. Goodbye!" << endl;
-return 0;
+    cout << "Game saved. Goodbye!" << endl;
+    return 0;
 }
