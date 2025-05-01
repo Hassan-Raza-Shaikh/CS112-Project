@@ -39,7 +39,7 @@ const int HOUSE_RELAX_ECO_POINTS = 5;       ///< Eco points gained from relaxing
  */
 const int MAX_HEALTH = 100;                 ///< Maximum health value
 const int MAX_HUNGER = 100;                 ///< Maximum hunger value
-const int HUNGER_DECREASE_RATE = 1;         ///< Hunger decrease per minute
+const int HUNGER_DECREASE_RATE = 2;         ///< Hunger decrease per minute
 const int HEALTH_DECREASE_RATE = 1;         ///< Health decrease when hungry
 const int HOSPITAL_HEALTH_RESTORE = 30;     ///< Health restored at hospital
 const int HOUSE_SLEEP_HEALTH_RESTORE = 20;  ///< Health restored while sleeping
@@ -66,13 +66,49 @@ const int PERIODIC_FUNDS_REWARD = 10;       ///< Funds gained periodically
 const int PERIODIC_FUNDS_INTERVAL = 60;     ///< Interval for periodic rewards in seconds
 const int OFFLINE_BONUS_PER_DAY = 1000;     ///< Offline bonus per day
 
+// Update Transport Constants
+const int CYCLE_COST = 100;
+const int CAR_COST = 300;
+const int ELECTRIC_CAR_COST = 500;
+const int CYCLE_REQUIRED_LEVEL = 2;
+const int CAR_REQUIRED_LEVEL = 4;
+const int ELECTRIC_CAR_REQUIRED_LEVEL = 6;
+const int CAR_ECO_PENALTY = 5;
+const int CAR_POLLUTION_INCREASE = 10;
+const int ELECTRIC_CAR_ECO_BONUS = 5;
+
+// New Restaurant Constants
+const int BASIC_MEAL_COST = 10;
+const int BASIC_MEAL_HUNGER = 10;
+const int BASIC_MEAL_ECO_PENALTY = 5;
+
+const int INTERMEDIATE_MEAL_COST = 25;
+const int INTERMEDIATE_MEAL_HUNGER = 20;
+
+const int PREMIUM_MEAL_COST = 50;
+const int PREMIUM_MEAL_ECO_POINTS = 20;
+const int PREMIUM_MEAL_HUNGER = 35;
+
+// New Environment Constants
+const int TREE_COST = 10;
+const int TREE_ECO_POINTS = 10;
+const int TREE_POLLUTION_REDUCTION = 10;
+
+// Update Transport System
+bool hasBicycle = false;
+bool hasCar = false;
+bool hasElectricCar = false;
+
+// Add House Relaxation Constant
+const int HOUSE_RELAX_TIME_ACCELERATION = 2;  ///< Time acceleration factor while relaxing
+
 // --------- Function Declarations ---------
 void clearScreen();
 void displayStatusBar(int value, int max, const string& label, const string& color);
 void displayStatus(int funds, int health, int hunger, int level, int levelPoints, int ecoPoints, int pollutionLevel);
 void updateLevel(int& level, int& levelPoints, int ecoPoints, int pollutionLevel);
 void updateHungerAndHealth(int& health, int& hunger, time_t& lastUpdateTime);
-void transport_delay(int vehicle);
+void transport_delay(int vehicle, int& ecoPoints, int& pollutionLevel);
 void update_funds_periodically(int &funds, time_t &lastUpdateTime);
 void offline_bonus(int &funds, time_t &lastSaveTime);
 void save_game(string filename, int level, int ecopoints, int funds, int house, int hospital, int office, int restaurant,
@@ -143,9 +179,9 @@ class House {
             if (funds >= HOUSE_EAT_COST) {
                 std::cout << "🍽️ Eating a meal... (3 seconds)\n";
                 funds -= HOUSE_EAT_COST;
-                hunger = min(hunger + HOUSE_EAT_HUNGER_RESTORE, MAX_HUNGER);
+                hunger = MAX_HUNGER; // Restores to full
                 std::this_thread::sleep_for(std::chrono::seconds(3));
-                std::cout << "You feel energized! (Hunger: " << hunger << "/" << MAX_HUNGER << ", Funds left: " << funds << ")\n";
+                std::cout << "You feel energized! (Hunger: " << hunger << "/" << MAX_HUNGER << ")\n";
             } else {
                 std::cout << "❌ Not enough funds!\n";
             }
@@ -153,9 +189,10 @@ class House {
     
         void relax() {
             std::cout << "🎮 Relaxing... (2 seconds)\n";
-            ecoPoints += HOUSE_RELAX_ECO_POINTS;
-            std::this_thread::sleep_for(std::chrono::seconds(2));
-            std::cout << "You feel happy! (Eco Points: " << ecoPoints << ")\n";
+            this_thread::sleep_for(std::chrono::seconds(2));
+            // Time passes faster while relaxing
+            funds += PERIODIC_FUNDS_REWARD * HOUSE_RELAX_TIME_ACCELERATION;
+            std::cout << "You feel happy! (Time passed, gained " << PERIODIC_FUNDS_REWARD * HOUSE_RELAX_TIME_ACCELERATION << " funds)\n";
         }
     };
 
@@ -256,37 +293,59 @@ class Restaurant {
     private:
         int& funds;
         int& ecoPoints;
+        int& hunger;  // Add hunger reference
     public:
-        Restaurant(int& f, int& e) : funds(f), ecoPoints(e) {}
+        Restaurant(int& f, int& e, int& h) : funds(f), ecoPoints(e), hunger(h) {}  // Add hunger parameter
     
         void enter() {
             while (true) {
+                displayStatus(funds, 0, hunger, 0, 0, ecoPoints, 0);
                 std::cout << "\n🍴 Welcome to the Restaurant!\n";
-                std::cout << "1. 🍔 Eat Premium Meal (Costs " << RESTAURANT_MEAL_COST << " funds, +" << RESTAURANT_ECO_POINTS << " ecoPoints)\n";
-                std::cout << "2. 🚪 Exit Restaurant\n";
+                std::cout << "1. 🍞 Basic Meal (Costs " << BASIC_MEAL_COST << " funds, +" << BASIC_MEAL_HUNGER << " hunger, -" << BASIC_MEAL_ECO_PENALTY << " ecoPoints)\n";
+                std::cout << "2. 🍝 Intermediate Meal (Costs " << INTERMEDIATE_MEAL_COST << " funds, +" << INTERMEDIATE_MEAL_HUNGER << " hunger)\n";
+                std::cout << "3. 🍲 Premium Meal (Costs " << PREMIUM_MEAL_COST << " funds, +" << PREMIUM_MEAL_ECO_POINTS << " ecoPoints, +" << PREMIUM_MEAL_HUNGER << " hunger)\n";
+                std::cout << "4. 🚪 Exit Restaurant\n";
                 std::cout << "Choose an option: ";
     
                 int choice;
                 std::cin >> choice;
                 std::cin.ignore();
     
-                if (choice == 1) {
-                    if (funds >= RESTAURANT_MEAL_COST) {
-                        std::cout << "🍽️ Eating... (4 seconds)\n";
-                        funds -= RESTAURANT_MEAL_COST;
-                        ecoPoints += RESTAURANT_ECO_POINTS;
-                        std::this_thread::sleep_for(std::chrono::seconds(4));
-                        std::cout << "Delicious! (Funds: " << funds << ", EcoPoints: " << ecoPoints << ")\n";
-                    } else {
-                        std::cout << "❌ Not enough funds!\n";
-                    }
-                }
-                else if (choice == 2) {
-                    std::cout << "🚶 Leaving Restaurant...\n";
-                    return;
-                }
-                else {
-                    std::cout << "Invalid option. Try again.\n";
+                switch (choice) {
+                    case 1:
+                        if (funds >= BASIC_MEAL_COST) {
+                            funds -= BASIC_MEAL_COST;
+                            hunger = std::min(hunger + BASIC_MEAL_HUNGER, MAX_HUNGER);
+                            ecoPoints -= BASIC_MEAL_ECO_PENALTY;
+                            std::cout << "🍽️ Eating basic meal...\n";
+                        } else {
+                            std::cout << "❌ Not enough funds!\n";
+                        }
+                        break;
+                    case 2:
+                        if (funds >= INTERMEDIATE_MEAL_COST) {
+                            funds -= INTERMEDIATE_MEAL_COST;
+                            hunger = std::min(hunger + INTERMEDIATE_MEAL_HUNGER, MAX_HUNGER);
+                            std::cout << "🍽️ Eating intermediate meal...\n";
+                        } else {
+                            std::cout << "❌ Not enough funds!\n";
+                        }
+                        break;
+                    case 3:
+                        if (funds >= PREMIUM_MEAL_COST) {
+                            funds -= PREMIUM_MEAL_COST;
+                            ecoPoints += PREMIUM_MEAL_ECO_POINTS;
+                            hunger = std::min(hunger + PREMIUM_MEAL_HUNGER, MAX_HUNGER);
+                            std::cout << "🍽️ Eating premium meal...\n";
+                        } else {
+                            std::cout << "❌ Not enough funds!\n";
+                        }
+                        break;
+                    case 4:
+                        std::cout << "🚶 Leaving Restaurant...\n";
+                        return;
+                    default:
+                        std::cout << "Invalid option. Try again!\n";
                 }
             }
         }
@@ -390,42 +449,119 @@ class Casino {
         void enter() {
             while (true) {
                 std::cout << "\n🎰 Welcome to the Casino!\n";
-                std::cout << "1. 🎲 Gamble (Bet " << CASINO_BET_AMOUNT << " funds)\n";
-                std::cout << "2. 🚪 Exit Casino\n";
+                std::cout << "1. 🎲 Simple Bet (Bet " << CASINO_BET_AMOUNT << " funds)\n";
+                std::cout << "2. 🎯 High Stakes (Bet " << CASINO_BET_AMOUNT * 2 << " funds)\n";
+                std::cout << "3. 🎮 Lucky Number (Bet " << CASINO_BET_AMOUNT / 2 << " funds)\n";
+                std::cout << "4. 🚪 Exit Casino\n";
                 std::cout << "Choose an option: ";
     
                 int choice;
                 std::cin >> choice;
                 std::cin.ignore();
     
-                if (choice == 1) {
-                    if (funds >= CASINO_BET_AMOUNT) {
-                        funds -= CASINO_BET_AMOUNT;
-                        int roll = std::rand() % 2;
-                        std::cout << "🎲 Rolling... (3 seconds)\n";
-                        std::this_thread::sleep_for(std::chrono::seconds(3));
-    
-                        if (roll == 1) {
-                            std::cout << "🎉 You WON " << CASINO_WIN_REWARD << " funds!\n";
-                            funds += CASINO_WIN_REWARD;
-                        } else {
-                            std::cout << "😢 You LOST the gamble.\n";
-                        }
-                        std::cout << "Current funds: " << funds << "\n";
-                    } else {
-                        std::cout << "❌ Not enough funds!\n";
-                    }
-                }
-                else if (choice == 2) {
-                    std::cout << "🚶 Leaving Casino...\n";
-                    return;
-                }
-                else {
-                    std::cout << "Invalid option. Try again.\n";
+                switch (choice) {
+                    case 1:
+                        gamble(CASINO_BET_AMOUNT);
+                        break;
+                    case 2:
+                        gamble(CASINO_BET_AMOUNT * 2);
+                        break;
+                    case 3:
+                        gamble(CASINO_BET_AMOUNT / 2);
+                        break;
+                    case 4:
+                        std::cout << "🚶 Leaving Casino...\n";
+                        return;
+                    default:
+                        std::cout << "Invalid option. Try again!\n";
                 }
             }
         }
+
+    private:
+        void gamble(int bet) {
+            if (funds >= bet) {
+                funds -= bet;
+                int roll = rand() % 2;
+                std::cout << "🎲 Rolling... (3 seconds)\n";
+                std::this_thread::sleep_for(std::chrono::seconds(3));
+    
+                if (roll == 1) {
+                    std::cout << "🎉 You WON " << bet * 2 << " funds!\n";
+                    funds += bet * 2;
+                } else {
+                    std::cout << "😢 You LOST the gamble.\n";
+                }
+                std::cout << "Current funds: " << funds << "\n";
+            } else {
+                std::cout << "❌ Not enough funds!\n";
+            }
+        }
     };
+
+// --------- New Environment Class ---------
+class Environment {
+private:
+    int& funds;
+    int& ecoPoints;
+    int& pollutionLevel;
+    int treesPlanted;
+public:
+    Environment(int& f, int& e, int& p) : funds(f), ecoPoints(e), pollutionLevel(p), treesPlanted(0) {}
+
+    void enter() {
+        while (true) {
+            displayStatus(funds, 0, 0, 0, 0, ecoPoints, pollutionLevel);
+            cout << "\n🌳 Welcome to the Environment Center!\n";
+            cout << "1. 🌱 Plant a Tree (Costs " << TREE_COST << " funds, +" << TREE_ECO_POINTS << " ecoPoints, -" << TREE_POLLUTION_REDUCTION << " pollution)\n";
+            cout << "2. 📊 View Statistics\n";
+            cout << "3. 🚪 Exit\n";
+            cout << "Choose an option: ";
+
+            int choice;
+            cin >> choice;
+            cin.ignore();
+
+            switch (choice) {
+                case 1:
+                    plantTree();
+                    break;
+                case 2:
+                    viewStatistics();
+                    break;
+                case 3:
+                    cout << "🚶 Leaving Environment Center...\n";
+                    return;
+                default:
+                    cout << "Invalid option. Try again!\n";
+            }
+        }
+    }
+
+private:
+    void plantTree() {
+        if (funds >= TREE_COST) {
+            funds -= TREE_COST;
+            ecoPoints += TREE_ECO_POINTS;
+            pollutionLevel -= TREE_POLLUTION_REDUCTION;
+            treesPlanted++;
+            cout << "🌱 Tree planted! Total trees: " << treesPlanted << "\n";
+        } else {
+            cout << "❌ Not enough funds!\n";
+        }
+    }
+
+    void viewStatistics() {
+        cout << "\n📊 Environment Statistics:\n";
+        cout << "🌳 Trees Planted: " << treesPlanted << "\n";
+        cout << "🌱 Eco Points: " << ecoPoints << "\n";
+        cout << "🌫️ Pollution Level: " << pollutionLevel << "\n";
+        if (pollutionLevel < 0) {
+            cout << "✨ Your city is pollution-free!\n";
+        }
+    }
+};
+
 // --------------------------------------
 
 // ---------- File Saving & Loading ----------
@@ -449,6 +585,9 @@ void save_game(string filename, int level, int ecopoints, int funds, int house, 
         ufile << "pollutionlevel: " << pollutionlevel << endl;
         ufile << "lastSaveTime: " << lastSaveTime << endl;
         ufile << "levelPoints: " << levelPoints << endl;
+        ufile << "hasBicycle: " << hasBicycle << endl;
+        ufile << "hasCar: " << hasCar << endl;
+        ufile << "hasElectricCar: " << hasElectricCar << endl;
         ufile.close();
     }
     else
@@ -498,6 +637,12 @@ bool load_game(string filename, int &level, int &ecopoints, int &funds,
                 ss >> lastSaveTime;
             else if (label == "levelPoints:")
                 ss >> levelPoints;
+            else if (label == "hasBicycle:")
+                ss >> hasBicycle;
+            else if (label == "hasCar:")
+                ss >> hasCar;
+            else if (label == "hasElectricCar:")
+                ss >> hasElectricCar;
         }
         ufile.close();
         return true;
@@ -509,6 +654,9 @@ bool load_game(string filename, int &level, int &ecopoints, int &funds,
         lastSaveTime = time(nullptr);
         level = 0;
         levelPoints = 0;
+        hasBicycle = false;
+        hasCar = false;
+        hasElectricCar = false;
         return false;
     }
 }
@@ -541,23 +689,38 @@ cout << "(+" << PERIODIC_FUNDS_REWARD << " funds for being active!) Current fund
 }
 }
 
-void transport_delay(int vehicle)
-{
-if (vehicle == 0) // Walking
-{
-cout << "Walking... Please wait " << WALK_DELAY << " seconds.\n";
-this_thread::sleep_for(chrono::seconds(WALK_DELAY));
-}
-else if (vehicle == 1) // Cycling
-{
-cout << "Cycling... Please wait " << CYCLE_DELAY << " seconds.\n";
-this_thread::sleep_for(chrono::seconds(CYCLE_DELAY));
-}
-else if (vehicle == 2) // Car
-{
-cout << "Driving... Immediate arrival!\n";
-this_thread::sleep_for(chrono::seconds(CAR_DELAY));
-}
+void transport_delay(int vehicle, int& ecoPoints, int& pollutionLevel) {
+    if (vehicle == 0) { // Walking
+        cout << "Walking... Please wait " << WALK_DELAY << " seconds.\n";
+        this_thread::sleep_for(chrono::seconds(WALK_DELAY));
+    }
+    else if (vehicle == 1) { // Cycling
+        if (!hasBicycle) {
+            cout << "❌ You need to purchase a bicycle first!\n";
+            return;
+        }
+        cout << "Cycling... Please wait " << CYCLE_DELAY << " seconds.\n";
+        this_thread::sleep_for(chrono::seconds(CYCLE_DELAY));
+    }
+    else if (vehicle == 2) { // Regular Car
+        if (!hasCar) {
+            cout << "❌ You need to purchase a car first!\n";
+            return;
+        }
+        cout << "Driving... Immediate arrival!\n";
+        ecoPoints -= CAR_ECO_PENALTY;
+        pollutionLevel += CAR_POLLUTION_INCREASE;
+        this_thread::sleep_for(chrono::seconds(CAR_DELAY));
+    }
+    else if (vehicle == 3) { // Electric Car
+        if (!hasElectricCar) {
+            cout << "❌ You need to purchase an electric car first!\n";
+            return;
+        }
+        cout << "Driving electric car... Immediate arrival!\n";
+        ecoPoints += ELECTRIC_CAR_ECO_BONUS;
+        this_thread::sleep_for(chrono::seconds(CAR_DELAY));
+    }
 }
 
 // --------- Status Display Functions ---------
@@ -644,8 +807,9 @@ cout << "4. Go to Restaurant\n";
 cout << "5. Go to School\n";
 cout << "6. Go to Bank\n";
 cout << "7. Go to Casino\n";
-cout << "8. Change Transport Mode (Walk / Cycle / Car)\n";
+cout << "8. Change Transport Mode\n";
 cout << "9. View Instructions\n";
+cout << "10. Environment Center\n";
 cout << "0. Save and Exit\n";
 cout << "Enter your choice: ";
 int choice;
@@ -656,40 +820,127 @@ int netFunds = funds - initialFunds;
 switch (choice)
 {
 case 1:
- transport_delay(vehicle);
+ transport_delay(vehicle, ecopoints, pollutionLevel);
  House(funds, ecopoints, health, hunger).enter();
  break;
 case 2:
- transport_delay(vehicle);
+ transport_delay(vehicle, ecopoints, pollutionLevel);
  Hospital(funds, health).enter();
  break;
 case 3:
- transport_delay(vehicle);
+ transport_delay(vehicle, ecopoints, pollutionLevel);
  Office(funds).enter();
  break;
 case 4:
- transport_delay(vehicle);
- Restaurant(funds, ecopoints).enter();
+ transport_delay(vehicle, ecopoints, pollutionLevel);
+ Restaurant(funds, ecopoints, hunger).enter();
  break;
 case 5:
- transport_delay(vehicle);
+ transport_delay(vehicle, ecopoints, pollutionLevel);
  School(ecopoints).enter();
  break;
 case 6:
- transport_delay(vehicle);
+ transport_delay(vehicle, ecopoints, pollutionLevel);
  Bank(funds).enter();
  break;
 case 7:
- transport_delay(vehicle);
+ transport_delay(vehicle, ecopoints, pollutionLevel);
  Casino(funds).enter();
  break;
 case 8:
  cout << "Choose your transport:\n";
- cout << "0. Walk\n1. Cycle\n2. Car\nChoice: ";
- cin >> vehicle;
+ cout << "0. Walk (Free)\n";
+ 
+ // Show bicycle options based on level and ownership
+ if (level >= CYCLE_REQUIRED_LEVEL) {
+     if (hasBicycle) {
+         cout << "1. Cycle (Owned)\n";
+     } else {
+         cout << "1. Buy Cycle (" << CYCLE_COST << " funds)\n";
+     }
+ }
+ 
+ // Show regular car options based on level and ownership
+ if (level >= CAR_REQUIRED_LEVEL) {
+     if (hasCar) {
+         cout << "2. Regular Car (Owned)\n";
+     } else {
+         cout << "2. Buy Regular Car (" << CAR_COST << " funds)\n";
+     }
+ }
+ 
+ // Show electric car options based on level and ownership
+ if (level >= ELECTRIC_CAR_REQUIRED_LEVEL) {
+     if (hasElectricCar) {
+         cout << "3. Electric Car (Owned)\n";
+     } else {
+         cout << "3. Buy Electric Car (" << ELECTRIC_CAR_COST << " funds)\n";
+     }
+ }
+ 
+ cout << "Choice: ";
+ cin >> choice;
+ 
+ if (choice == 1) {
+     if (level < CYCLE_REQUIRED_LEVEL) {
+         cout << "❌ You need to be level " << CYCLE_REQUIRED_LEVEL << " to buy a bicycle!\n";
+     } else if (!hasBicycle) {
+         if (funds >= CYCLE_COST) {
+             funds -= CYCLE_COST;
+             hasBicycle = true;
+             vehicle = 1;
+             cout << "✅ Bicycle purchased! You can now cycle.\n";
+         } else {
+             cout << "❌ Not enough funds!\n";
+         }
+     } else {
+         vehicle = 1;
+         cout << "✅ Transport mode changed to cycling!\n";
+     }
+ } else if (choice == 2) {
+     if (level < CAR_REQUIRED_LEVEL) {
+         cout << "❌ You need to be level " << CAR_REQUIRED_LEVEL << " to buy a regular car!\n";
+     } else if (!hasCar) {
+         if (funds >= CAR_COST) {
+             funds -= CAR_COST;
+             hasCar = true;
+             vehicle = 2;
+             cout << "✅ Regular car purchased! You can now drive.\n";
+         } else {
+             cout << "❌ Not enough funds!\n";
+         }
+     } else {
+         vehicle = 2;
+         cout << "✅ Transport mode changed to regular car!\n";
+     }
+ } else if (choice == 3) {
+     if (level < ELECTRIC_CAR_REQUIRED_LEVEL) {
+         cout << "❌ You need to be level " << ELECTRIC_CAR_REQUIRED_LEVEL << " to buy an electric car!\n";
+     } else if (!hasElectricCar) {
+         if (funds >= ELECTRIC_CAR_COST) {
+             funds -= ELECTRIC_CAR_COST;
+             hasElectricCar = true;
+             vehicle = 3;
+             cout << "✅ Electric car purchased! You can now drive eco-friendly.\n";
+         } else {
+             cout << "❌ Not enough funds!\n";
+         }
+     } else {
+         vehicle = 3;
+         cout << "✅ Transport mode changed to electric car!\n";
+     }
+ } else if (choice == 0) {
+     vehicle = 0;
+     cout << "✅ Transport mode changed to walking!\n";
+ } else {
+     cout << "Invalid choice!\n";
+ }
  break;
 case 9:
  displayInstructions("eco_city_instructions.txt");
+ break;
+case 10:
+ Environment(funds, ecopoints, pollutionLevel).enter();
  break;
 case 0:
  clearScreen();
