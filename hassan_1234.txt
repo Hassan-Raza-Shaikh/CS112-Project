@@ -1,6 +1,6 @@
 level: 3
 ecopoints: 270
-funds: 2242
+funds: 3219
 house: 0
 hospital: 0
 office: 0
@@ -10,8 +10,11 @@ bank: 0
 casino: 0
 vehicle: 1
 pollutionlevel: 0
-lastSaveTime: 1746170104
+lastSaveTime: 1746254589
 levelPoints: 270
 hasBicycle: 1
 hasCar: 0
 hasElectricCar: 0
+hasLoan: 0
+loanAmount: 0
+lenderName: 
