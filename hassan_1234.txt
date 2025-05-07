@@ -1,23 +1,27 @@
-level: 4
-ecopoints: 330
-funds: 2449
+level: 7
+ecopoints: 645
+funds: 854
 health: 100
 hunger: 100
 houseUp: 3
-hospitalUp: 1
+hospitalUp: 3
 officeUp: 3
-restaurantUp: 1
-schoolUp: 1
+restaurantUp: 3
+schoolUp: 2
 bankUp: 1
-casinoUp: 1
+casinoUp: 3
 envUp: 1
 recUp: 1
 gardenUp: 1
-vehicle: 1
+vehicle: 3
 pollutionlevel: 0
-lastSaveTime: 1746423473
-levelPoints: 30
+lastSaveTime: 1746582887
+levelPoints: 45
 hasLoan: 0
 loanAmount: 0
 lenderName: 
 loanStartDate: 
+cityName: LOL
+hasBicycle: 1
+hasCar: 1
+hasElectricCar: 1
