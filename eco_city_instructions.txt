@@ -3,6 +3,12 @@ WELCOME TO ECO CITY!
 HOW TO PLAY:
 Eco City is a simulation game where you build and manage a sustainable city. Your goal is to create a thriving, eco-friendly community while managing resources and making environmentally conscious decisions.
 
+STARTING RESOURCES:
+- New players begin with 500 funds
+- Level 1
+- Full health and hunger
+- Basic buildings unlocked
+
 ECO-POINTS SYSTEM:
 - Eco points are earned through environmentally friendly actions
 - Planting trees, using sustainable transport, and participating in eco-activities earn eco points

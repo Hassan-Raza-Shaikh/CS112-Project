@@ -15,7 +15,7 @@ recUp: 1
 gardenUp: 1
 vehicle: 3
 pollutionlevel: 0
-lastSaveTime: 1746582887
+lastSaveTime: 1746613729
 levelPoints: 45
 hasLoan: 0
 loanAmount: 0

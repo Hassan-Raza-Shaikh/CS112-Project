@@ -1986,6 +1986,7 @@ int main()
     {
         displayInstructions("eco_city_instructions.txt"); // only show for new users
         level = 1;
+        funds = 500;  // Give new players 500 starting funds
         cout << "Name your city: ";
         getline(cin, cityName);
     }

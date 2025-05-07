@@ -28,3 +28,9 @@ A new eco-friendly city has been established. Citizens are encouraged to partici
 [2025-05-07 06:53] 🌱 Environmental - Local Wildlife Returns to City Parks
 Environmental conditions in LOL continue to improve. Local initiatives are showing positive results.
 
+[2025-05-07 15:28] 🌱 Environmental - Welcome to LOL!
+Welcome to your eco-city! Start building a sustainable future by making environmentally conscious decisions.
+
+[2025-05-07 15:28] 🏙️ City Development - New City Established
+A new eco-friendly city has been established. Citizens are encouraged to participate in sustainable development.
+
