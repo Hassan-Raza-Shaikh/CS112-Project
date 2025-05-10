@@ -1,3 +1,0 @@
-hasLoan: 1
-loanAmount: 70
-lenderName: hassan

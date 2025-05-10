@@ -16,7 +16,10 @@
 #include <functional>
 #include <vector>
 #include <filesystem>
+#include <regex>
+#include <limits>
 using namespace std;
+namespace fs = std::filesystem;
 
 // Forward declarations for news system
 struct NewsItem {
@@ -62,7 +65,9 @@ const int HOUSE_RELAX_ECO_POINTS = 5;       ///< Eco points gained from relaxing
 const int MAX_HEALTH = 100;                 ///< Maximum health value
 const int MAX_HUNGER = 100;                 ///< Maximum hunger value
 const int HUNGER_DECREASE_RATE = 2;         ///< Hunger decrease per minute
-const int HEALTH_DECREASE_RATE = 1;         ///< Health decrease when hungry
+const int HEALTH_DECREASE_RATE = 1;         ///< Health decrease per minute
+const int HEALTH_DECREASE_RATE_LOW_HUNGER = 5; ///< Health decrease per minute when hungry
+const int HUNGER_THRESHOLD = 30;            ///< Hunger threshold for increased health decrease
 const int HOSPITAL_HEALTH_RESTORE = 30;     ///< Health restored at hospital
 const int HOUSE_SLEEP_HEALTH_RESTORE = 20;  ///< Health restored while sleeping
 const int HOUSE_EAT_HUNGER_RESTORE = 30;    ///< Hunger restored while eating
@@ -73,6 +78,12 @@ const int HOUSE_EAT_HUNGER_RESTORE = 30;    ///< Hunger restored while eating
 const int LEVEL_POINTS_PER_ECO = 1;         ///< Level points per eco point
 const int POLLUTION_PENALTY = 2;            ///< Pollution penalty multiplier
 const int LEVEL_UP_THRESHOLD = 100;         ///< Level points needed to level up
+
+/**
+ * @brief Win condition constants
+ */
+const int WIN_REQUIRED_LEVEL = 10;          ///< Required level to win
+const int WIN_REQUIRED_DAYS = 5;            ///< Required days with zero pollution to win
 
 /**
  * @brief Transportation delay constants in seconds
@@ -176,11 +187,11 @@ void update_funds_periodically(int &funds, time_t &lastUpdateTime);
 void offline_bonus(int &funds, time_t &lastSaveTime);
 void save_game(string filename, int level, int ecopoints, int funds, int health, int hunger,
     int houseUp, int hospitalUp, int officeUp, int restaurantUp, int schoolUp, int bankUp, int casinoUp, int envUp, int recUp, int gardenUp,
-    int vehicle, int pollutionlevel, time_t lastSaveTime, int levelPoints, bool hasLoan, int loanAmount, string lenderName, string loanStartDate, string cityName);
+    int vehicle, int pollutionlevel, time_t lastSaveTime, int levelPoints, bool hasLoan, int loanAmount, string lenderName, string loanStartDate, string cityName, int daysWithZeroPollution);
 bool load_game(string filename, int &level, int &ecopoints, int &funds, int &health, int &hunger,
     int &houseUp, int &hospitalUp, int &officeUp, int &restaurantUp, int &schoolUp, int &bankUp, int &casinoUp, int &envUp, int &recUp, int &gardenUp,
     int& vehicle, int& pollutionlevel, time_t& lastSaveTime, int& levelPoints,
-    bool &hasLoan, int &loanAmount, string &lenderName, string &loanStartDate, string &cityName);
+    bool &hasLoan, int &loanAmount, string &lenderName, string &loanStartDate, string &cityName, int& daysWithZeroPollution);
 
 // --------- ASCII Art for Buildings ---------
 const string HOUSE_ART = R"(
@@ -278,21 +289,149 @@ struct BuildingUpgrade {
 // --------- Achievements System ---------
 struct Achievements {
     set<string> unlocked;
+    set<string> allAchievements = {
+        // Environmental Achievements
+        "Tree Planter: Planted 10 trees",
+        "Forest Guardian: Planted 50 trees",
+        "Pollution Fighter: Reduced pollution to 0",
+        "Eco Warrior: Reached 1000 eco points",
+        "Green Thumb: Planted 100 trees",
+        
+        // Building Achievements
+        "Architect: Upgraded any building to level 3",
+        "Master Builder: Upgraded all buildings to level 3",
+        "City Planner: Upgraded 5 different buildings",
+        
+        // Summit & Social Achievements
+        "Summit Leader: Hosted 3 summits",
+        "Diplomat: Hosted 10 summits",
+        "Community Builder: Hosted 5 summits",
+        
+        // Financial Achievements
+        "Debt-Free: Repaid a loan",
+        "Wealthy Citizen: Accumulated 10,000 funds",
+        "Financial Expert: Earned 1,000 funds in interest",
+        "Business Tycoon: Accumulated 50,000 funds",
+        
+        // Transport Achievements
+        "Eco Commuter: Purchased an electric car",
+        "Green Traveler: Used bicycle 50 times",
+        "Transport Master: Owned all vehicle types",
+        
+        // Health & Wellbeing Achievements
+        "Healthy Citizen: Maintained max health for 5 days",
+        "Well Fed: Maintained max hunger for 5 days",
+        "Life Balance: Kept both health and hunger above 80 for 3 days",
+        
+        // Special Achievements
+        "Eco City Champion: Reached level 10",
+        "Sustainability Expert: Achieved zero pollution for 5 days",
+        "Master Gardener: Planted 200 trees"
+    };
+    
+    // Achievement progress tracking
     int treesPlanted = 0;
     int summitsHosted = 0;
     int loansRepaid = 0;
+    int buildingsUpgraded = 0;
+    int maxBuildingsUpgraded = 0;
+    int daysWithMaxHealth = 0;
+    int daysWithMaxHunger = 0;
+    int daysWithHighStats = 0;
+    int bicycleUses = 0;
+    int totalFundsEarned = 0;
+    int interestEarned = 0;
+    
     void checkAndUnlock() {
+        // Environmental Achievements
         if (treesPlanted >= 10) unlocked.insert("Tree Planter: Planted 10 trees");
+        if (treesPlanted >= 50) unlocked.insert("Forest Guardian: Planted 50 trees");
+        if (treesPlanted >= 100) unlocked.insert("Green Thumb: Planted 100 trees");
+        if (treesPlanted >= 200) unlocked.insert("Master Gardener: Planted 200 trees");
+        
+        // Summit Achievements
         if (summitsHosted >= 3) unlocked.insert("Summit Leader: Hosted 3 summits");
+        if (summitsHosted >= 5) unlocked.insert("Community Builder: Hosted 5 summits");
+        if (summitsHosted >= 10) unlocked.insert("Diplomat: Hosted 10 summits");
+        
+        // Financial Achievements
         if (loansRepaid >= 1) unlocked.insert("Debt-Free: Repaid a loan");
+        if (totalFundsEarned >= 10000) unlocked.insert("Wealthy Citizen: Accumulated 10,000 funds");
+        if (interestEarned >= 1000) unlocked.insert("Financial Expert: Earned 1,000 funds in interest");
+        if (totalFundsEarned >= 50000) unlocked.insert("Business Tycoon: Accumulated 50,000 funds");
+        
+        // Transport Achievements
+        if (bicycleUses >= 50) unlocked.insert("Green Traveler: Used bicycle 50 times");
+        
+        // Health Achievements
+        if (daysWithMaxHealth >= 5) unlocked.insert("Healthy Citizen: Maintained max health for 5 days");
+        if (daysWithMaxHunger >= 5) unlocked.insert("Well Fed: Maintained max hunger for 5 days");
+        if (daysWithHighStats >= 3) unlocked.insert("Life Balance: Kept both health and hunger above 80 for 3 days");
+        
+        // Building Achievements
+        if (maxBuildingsUpgraded >= 1) unlocked.insert("Architect: Upgraded any building to level 3");
+        if (buildingsUpgraded >= 5) unlocked.insert("City Planner: Upgraded 5 different buildings");
+        if (maxBuildingsUpgraded >= 10) unlocked.insert("Master Builder: Upgraded all buildings to level 3");
     }
+    
     void display() {
         cout << "\n🏅 Achievements & Badges 🏅\n";
         if (unlocked.empty()) {
             cout << "No achievements unlocked yet.\n";
-        } else {
-            for (const auto& ach : unlocked) {
-                cout << "- " << ach << "\n";
+        }
+        
+        // Group achievements by category
+        map<string, vector<string>> categories = {
+            {"🌱 Environmental", {}},
+            {"🏢 Buildings", {}},
+            {"🤝 Summit & Social", {}},
+            {"💰 Financial", {}},
+            {"🚗 Transport", {}},
+            {"❤️ Health & Wellbeing", {}},
+            {"🏆 Special", {}}
+        };
+        
+        // Sort achievements into categories
+        for (const auto& ach : allAchievements) {
+            if (ach.find("Tree") != string::npos || ach.find("Pollution") != string::npos || 
+                ach.find("Eco") != string::npos || ach.find("Green") != string::npos) {
+                categories["🌱 Environmental"].push_back(ach);
+            }
+            else if (ach.find("building") != string::npos || ach.find("Architect") != string::npos) {
+                categories["🏢 Buildings"].push_back(ach);
+            }
+            else if (ach.find("Summit") != string::npos || ach.find("Community") != string::npos || 
+                     ach.find("Diplomat") != string::npos) {
+                categories["🤝 Summit & Social"].push_back(ach);
+            }
+            else if (ach.find("funds") != string::npos || ach.find("Debt") != string::npos || 
+                     ach.find("Wealthy") != string::npos || ach.find("Financial") != string::npos) {
+                categories["💰 Financial"].push_back(ach);
+            }
+            else if (ach.find("car") != string::npos || ach.find("bicycle") != string::npos || 
+                     ach.find("Transport") != string::npos) {
+                categories["🚗 Transport"].push_back(ach);
+            }
+            else if (ach.find("health") != string::npos || ach.find("hunger") != string::npos || 
+                     ach.find("Well") != string::npos) {
+                categories["❤️ Health & Wellbeing"].push_back(ach);
+            }
+            else {
+                categories["🏆 Special"].push_back(ach);
+            }
+        }
+        
+        // Display achievements by category
+        for (const auto& category : categories) {
+            if (!category.second.empty()) {
+                cout << "\n" << category.first << ":\n";
+                for (const auto& ach : category.second) {
+                    if (unlocked.count(ach) > 0) {
+                        cout << "✅ " << ach << "\n";
+                    } else {
+                        cout << "🔒 " << ach << "\n";
+                    }
+                }
             }
         }
         cout << endl;
@@ -444,11 +583,11 @@ class House {
     
         void eat() {
             if (funds >= HOUSE_EAT_COST) {
-                cout << "🍽️ Eating a meal... (3 seconds)\n";
                 funds -= HOUSE_EAT_COST;
                 hunger = min(hunger + HOUSE_EAT_HUNGER_RESTORE * upgrade.level, MAX_HUNGER);
-                this_thread::sleep_for(chrono::seconds(3));
-                cout << "You feel energized! (Hunger: " << hunger << "/" << MAX_HUNGER << ")\n";
+                ecoPoints += HOUSE_RELAX_ECO_POINTS * upgrade.level;
+                updateLevel(level, levelPoints, ecoPoints, pollutionLevel);
+                cout << "You ate a meal and restored " << HOUSE_EAT_HUNGER_RESTORE << " hunger points!\n";
             } else {
                 cout << "❌ Not enough funds!\n";
             }
@@ -457,9 +596,9 @@ class House {
         void relax() {
             cout << "🎮 Relaxing... (2 seconds)\n";
             this_thread::sleep_for(chrono::seconds(2));
-            funds += PERIODIC_FUNDS_REWARD * HOUSE_RELAX_TIME_ACCELERATION * upgrade.level;
             ecoPoints += HOUSE_RELAX_ECO_POINTS * upgrade.level;
-            cout << "You feel happy! (Time passed, gained " << PERIODIC_FUNDS_REWARD * HOUSE_RELAX_TIME_ACCELERATION * upgrade.level << " funds and " << HOUSE_RELAX_ECO_POINTS * upgrade.level << " eco points)\n";
+            updateLevel(level, levelPoints, ecoPoints, pollutionLevel);
+            cout << "You gained " << (HOUSE_RELAX_ECO_POINTS * upgrade.level) << " eco points!\n";
         }
     public:
         int getUpgradeLevel() const { return upgrade.level; }
@@ -541,6 +680,138 @@ class Office {
         int& pollutionLevel;
         BuildingUpgrade upgrade;
         const string& cityName;
+        
+        struct MathProblem {
+            string question;
+            int answer;
+            int difficulty;  // 1-3 for different difficulty levels
+        };
+        
+        vector<MathProblem> problems = {
+            // Easy problems (difficulty 1)
+            {"What is 5 + 7?", 12, 1},
+            {"What is 10 - 4?", 6, 1},
+            {"What is 3 × 4?", 12, 1},
+            {"What is 15 ÷ 3?", 5, 1},
+            {"What is 8 + 9?", 17, 1},
+            {"What is 6 × 7?", 42, 1},
+            {"What is 20 - 8?", 12, 1},
+            {"What is 24 ÷ 6?", 4, 1},
+            {"What is 11 + 13?", 24, 1},
+            {"What is 9 × 5?", 45, 1},
+            
+            // Easy word problems (difficulty 1)
+            {"If you have 7 apples and buy 5 more, how many do you have?", 12, 1},
+            {"A box has 8 chocolates. If you eat 3, how many are left?", 5, 1},
+            {"There are 4 rows of chairs with 6 chairs each. How many chairs total?", 24, 1},
+            {"You have 15 candies to share among 3 friends. How many each?", 5, 1},
+            {"A bus has 9 passengers and 4 more get on. How many now?", 13, 1},
+            
+            // Medium problems (difficulty 2)
+            {"What is 25 × 4?", 100, 2},
+            {"What is 72 ÷ 8?", 9, 2},
+            {"What is 15 × 6?", 90, 2},
+            {"What is 100 - 37?", 63, 2},
+            {"What is 13 × 7?", 91, 2},
+            {"What is 48 × 3?", 144, 2},
+            {"What is 120 ÷ 5?", 24, 2},
+            {"What is 85 - 29?", 56, 2},
+            {"What is 16 × 8?", 128, 2},
+            {"What is 99 ÷ 9?", 11, 2},
+            
+            // Medium word problems (difficulty 2)
+            {"A store sells shirts for $25 each. How much for 4 shirts?", 100, 2},
+            {"You have $72 and want to buy books at $8 each. How many can you buy?", 9, 2},
+            {"A garden has 15 rows of flowers with 6 in each row. How many flowers?", 90, 2},
+            {"You have $100 and spend $37. How much is left?", 63, 2},
+            {"A box contains 13 packs of cards with 7 cards each. How many cards?", 91, 2},
+            {"A train travels 48 km per hour. How far in 3 hours?", 144, 2},
+            {"You have 120 cookies to share among 5 friends. How many each?", 24, 2},
+            {"A store had 85 items and sold 29. How many remain?", 56, 2},
+            {"A classroom has 16 rows with 8 students each. How many students?", 128, 2},
+            {"99 students need to be divided into 9 equal groups. How many per group?", 11, 2},
+            
+            // Hard problems (difficulty 3)
+            {"What is 17 × 23?", 391, 3},
+            {"What is 256 ÷ 16?", 16, 3},
+            {"What is 45 × 45?", 2025, 3},
+            {"What is 1000 - 387?", 613, 3},
+            {"What is 19 × 21?", 399, 3},
+            {"What is 34 × 28?", 952, 3},
+            {"What is 512 ÷ 32?", 16, 3},
+            {"What is 750 - 283?", 467, 3},
+            {"What is 27 × 31?", 837, 3},
+            {"What is 625 ÷ 25?", 25, 3},
+            
+            // Hard word problems (difficulty 3)
+            {"A factory produces 17 items per hour for 23 hours. How many items?", 391, 3},
+            {"256 students need to be divided into 16 equal classes. How many per class?", 16, 3},
+            {"A square field is 45 meters on each side. What is its area?", 2025, 3},
+            {"You have $1000 and spend $387. How much is left?", 613, 3},
+            {"A store has 19 shelves with 21 items each. How many items total?", 399, 3},
+            {"A train travels 34 km per hour for 28 hours. How far does it go?", 952, 3},
+            {"512 cookies need to be packed into boxes of 32. How many boxes?", 16, 3},
+            {"A store had 750 items and sold 283. How many remain?", 467, 3},
+            {"A garden has 27 rows with 31 plants each. How many plants?", 837, 3},
+            {"625 students need to be divided into 25 equal groups. How many per group?", 25, 3},
+            
+            // Environmental word problems (all difficulties)
+            {"You plant 7 trees each day for 5 days. How many trees total?", 35, 1},
+            {"A recycling center processes 8 tons of waste per hour. How much in 6 hours?", 48, 2},
+            {"A solar panel produces 45 kWh per day. How much energy in 45 days?", 2025, 3},
+            {"You collect 12 plastic bottles each day. How many in a week?", 84, 1},
+            {"A wind turbine generates 25 kWh per hour. How much in 4 hours?", 100, 2},
+            {"A forest has 17 trees per row and 23 rows. How many trees?", 391, 3},
+            {"You recycle 15 items each day. How many in 6 days?", 90, 1},
+            {"A solar farm has 16 panels producing 8 kWh each. Total energy?", 128, 2},
+            {"A city reduces pollution by 34% from 750 units. How much remains?", 495, 3},
+            {"You plant 9 trees each week. How many in 5 weeks?", 45, 1}
+        };
+        
+        MathProblem getRandomProblem() {
+            static default_random_engine rng(static_cast<unsigned>(time(nullptr)));
+            
+            // Filter problems based on office level
+            vector<MathProblem> availableProblems;
+            int maxDifficulty = min(3, upgrade.level);  // Max difficulty based on office level
+            
+            for (const auto& problem : problems) {
+                if (problem.difficulty <= maxDifficulty) {
+                    availableProblems.push_back(problem);
+                }
+            }
+            
+            uniform_int_distribution<size_t> dist(0, availableProblems.size() - 1);
+            return availableProblems[dist(rng)];
+        }
+        
+        bool solveMathProblem() {
+            MathProblem problem = getRandomProblem();
+            cout << "\n📊 Solve this problem to earn your salary:\n";
+            cout << problem.question << "\n";
+            cout << "Your answer: ";
+            
+            int answer;
+            cin >> answer;
+            cin.ignore();
+            
+            if (answer == problem.answer) {
+                // Reduced base reward calculation
+                int baseReward = OFFICE_WORK_REWARD / 2;  // Halved the base reward
+                int reward = (baseReward * upgrade.level * problem.difficulty) / 2;  // Further reduced by difficulty scaling
+                cout << "✅ Correct! You earned " << reward << " funds!\n";
+                funds += reward;
+                return true;
+            } else {
+                // Reduced consolation reward
+                int consolationReward = OFFICE_WORK_REWARD / 4;  // Quarter of the base reward
+                cout << "❌ Wrong! The correct answer was: " << problem.answer << "\n";
+                cout << "You still get a small bonus for trying: " << consolationReward << " funds\n";
+                funds += consolationReward;
+                return false;
+            }
+        }
+        
     public:
         Office(int& f, int& h, int& hu, int& l, int& lp, int& e, int& p, const string& cn, int up=1) 
             : funds(f), health(h), hunger(hu), level(l), levelPoints(lp), ecoPoints(e), pollutionLevel(p), cityName(cn) { upgrade.level = up; }
@@ -551,7 +822,7 @@ class Office {
             while (true) {
                 displayStatus(funds, health, hunger, level, levelPoints, ecoPoints, pollutionLevel, cityName);
                 cout << "\n🏢 Welcome to your Office (Level " << upgrade.level << ")!\n";
-                cout << "1. 💼 Work (+" << (OFFICE_WORK_REWARD * upgrade.level) << " funds)\n";
+                cout << "1. 💼 Work (Solve math problems to earn funds)\n";
                 if (upgrade.canUpgrade()) cout << "2. Upgrade Office (Cost: " << upgrade.upgradeCost() << " funds)\n";
                 cout << "3. 🚪 Exit Office\n";
                 cout << "Choose an option: ";
@@ -561,25 +832,52 @@ class Office {
                 cin.ignore();
     
                 if (choice == 1) {
-                    cout << "💼 Working... (5 seconds)\n";
-                    this_thread::sleep_for(chrono::seconds(5));
-                    funds += OFFICE_WORK_REWARD * upgrade.level;
-                    cout << "You earned " << OFFICE_WORK_REWARD * upgrade.level << " funds! (Total funds: " << funds << ")\n";
+                    workSession();
                 } else if (choice == 2 && upgrade.canUpgrade()) {
                     upgrade.upgrade(funds);
-                }
-                else if ((choice == 2 && !upgrade.canUpgrade()) || choice == 3) {
+                } else if ((choice == 2 && !upgrade.canUpgrade()) || choice == 3) {
                     cout << "🚶 Leaving Office...\n";
                     clearScreen();
                     return;
-                }
-                else {
+                } else {
                     cout << "Invalid option. Try again.\n";
                 }
             }
         }
 
         int getUpgradeLevel() const { return upgrade.level; }
+
+        void workSession() {
+            cout << "💼 Working... (3 seconds)\n";
+            this_thread::sleep_for(chrono::seconds(3));
+            
+            // Solve multiple problems based on office level
+            int problemsToSolve = min(3, upgrade.level);
+            int correctAnswers = 0;
+            
+            for (int i = 0; i < problemsToSolve; i++) {
+                if (solveMathProblem()) {
+                    correctAnswers++;
+                }
+                if (i < problemsToSolve - 1) {
+                    cout << "\nPress Enter to continue to the next problem...";
+                    cin.get();
+                }
+            }
+            
+            // Bonus for getting all problems correct
+            if (correctAnswers == problemsToSolve) {
+                int bonus = OFFICE_WORK_REWARD * upgrade.level;
+                cout << "\n🎉 Perfect score! Bonus " << bonus << " funds!\n";
+                funds += bonus;
+            }
+            
+            // Reduce hunger after working
+            int hungerReduction = 8 * upgrade.level;  // More hunger reduction at higher levels
+            hunger = max(0, hunger - hungerReduction);
+            cout << "\nYou solved " << correctAnswers << " out of " << problemsToSolve << " problems correctly!\n";
+            cout << "🍽️ Working made you hungry! (-" << hungerReduction << " hunger)\n";
+        }
     };
 
 /**
@@ -677,6 +975,7 @@ class Restaurant {
  */
 class School {
     private:
+        int& funds;
         int& ecoPoints;
         int& health;
         int& hunger;
@@ -685,17 +984,151 @@ class School {
         int& pollutionLevel;
         BuildingUpgrade upgrade;
         const string& cityName;
+        
+        struct Riddle {
+            string question;
+            string answer;
+            int ecoPoints;
+            bool answered = false;  // Track if this riddle has been answered
+        };
+        
+        vector<Riddle> riddles = {
+            {"What grows in the ground but never dies?", "tree", 5},
+            {"I am not alive, but I grow; I don't have lungs, but I need air; I don't have a mouth, but I can be killed. What am I?", "fire", 5},
+            {"What has many keys but can't open a single lock?", "piano", 5},
+            {"What gets wetter and wetter the more it dries?", "towel", 5},
+            {"What has a head and a tail that will never meet?", "coin", 5},
+            {"What has cities, but no houses; forests, but no trees; and rivers, but no water?", "map", 5},
+            {"What can you catch but not throw?", "cold", 5},
+            {"What has a neck but no head?", "bottle", 5},
+            {"What has a face and two hands but no arms or legs?", "clock", 5},
+            {"What has a thumb and four fingers but is not alive?", "glove", 5},
+            {"What has a ring but no finger?", "telephone", 5},
+            {"What has a bottom at the top?", "leg", 5},
+            {"What has a head and a tail that will never meet?", "coin", 5},
+            {"What has a neck but no head?", "bottle", 5},
+            {"What has a face and two hands but no arms or legs?", "clock", 5},
+            {"What has a thumb and four fingers but is not alive?", "glove", 5},
+            {"What has a ring but no finger?", "telephone", 5},
+            {"What has a bottom at the top?", "leg", 5},
+            {"What has a head and a tail that will never meet?", "coin", 5},
+            {"What has a neck but no head?", "bottle", 5}
+        };
+        
+        Riddle getRandomRiddle() {
+            static default_random_engine rng(static_cast<unsigned>(time(nullptr)));
+            
+            // Filter out answered riddles
+            vector<Riddle> availableRiddles;
+            for (const auto& riddle : riddles) {
+                if (!riddle.answered) {
+                    availableRiddles.push_back(riddle);
+                }
+            }
+            
+            // If all riddles have been answered, reset them
+            if (availableRiddles.empty()) {
+                cout << "\n🔄 All riddles have been answered! Resetting riddle pool...\n";
+                for (auto& riddle : riddles) {
+                    riddle.answered = false;
+                }
+                availableRiddles = riddles;
+            }
+            
+            // Get random riddle from available ones
+            uniform_int_distribution<size_t> dist(0, availableRiddles.size() - 1);
+            return availableRiddles[dist(rng)];
+        }
+        
+        bool askRiddle() {
+            Riddle riddle = getRandomRiddle();
+            cout << "\n📚 Here's your riddle:\n";
+            cout << riddle.question << "\n";
+            
+            int attempts = 3;  // Total attempts allowed
+            bool correct = false;
+            
+            while (attempts > 0 && !correct) {
+                cout << "Your answer (Attempts left: " << attempts << "): ";
+                string answer;
+                getline(cin, answer);
+                
+                // Convert both to lowercase for case-insensitive comparison
+                transform(answer.begin(), answer.end(), answer.begin(), ::tolower);
+                transform(riddle.answer.begin(), riddle.answer.end(), riddle.answer.begin(), ::tolower);
+                
+                if (answer == riddle.answer) {
+                    cout << "✅ Correct! You earned " << (riddle.ecoPoints * upgrade.level) << " eco points!\n";
+                    ecoPoints += riddle.ecoPoints * upgrade.level;
+                    correct = true;
+                } else {
+                    attempts--;
+                    if (attempts > 0) {
+                        cout << "❌ Wrong! Try again.\n";
+                    }
+                }
+            }
+            
+            if (!correct) {
+                cout << "❌ Sorry, you're out of attempts. The correct answer was: " << riddle.answer << "\n";
+            }
+            
+            // Mark this riddle as answered
+            for (auto& r : riddles) {
+                if (r.question == riddle.question) {
+                    r.answered = true;
+                    break;
+                }
+            }
+            
+            return correct;
+        }
+        
+        void studySession() {
+            cout << "📚 Studying... (4 seconds)\n";
+            this_thread::sleep_for(chrono::seconds(4));
+            
+            // Ask up to 3 riddles based on school level
+            int riddlesToAsk = min(3, upgrade.level);
+            int correctAnswers = 0;
+            
+            for (int i = 0; i < riddlesToAsk; i++) {
+                if (askRiddle()) {
+                    correctAnswers++;
+                }
+                if (i < riddlesToAsk - 1) {
+                    cout << "\nPress Enter to continue to the next riddle...";
+                    cin.get();
+                }
+            }
+            
+            // Bonus eco points for getting all riddles correct
+            if (correctAnswers == riddlesToAsk) {
+                int bonusPoints = SCHOOL_STUDY_ECO_POINTS * upgrade.level;
+                cout << "\n🎉 Perfect score! Bonus " << bonusPoints << " eco points!\n";
+                ecoPoints += bonusPoints;
+                updateLevel(level, levelPoints, ecoPoints, pollutionLevel);
+            }
+            
+            // Reduce hunger after studying
+            int hungerReduction = 5 * upgrade.level;  // More hunger reduction at higher levels
+            hunger = max(0, hunger - hungerReduction);
+            cout << "\nYou got " << correctAnswers << " out of " << riddlesToAsk << " riddles correct!\n";
+            cout << "Total eco points gained: " << (correctAnswers * 5 * upgrade.level) << "\n";
+            cout << "🍽️ Studying made you hungry! (-" << hungerReduction << " hunger)\n";
+        }
+        
     public:
-        School(int& e, int& h, int& hu, int& l, int& lp, int& p, const string& cn, int up=1) 
-            : ecoPoints(e), health(h), hunger(hu), level(l), levelPoints(lp), pollutionLevel(p), cityName(cn) { upgrade.level = up; }
+        School(int& f, int& e, int& h, int& hu, int& l, int& lp, int& p, const string& cn, int up=1) 
+            : funds(f), ecoPoints(e), health(h), hunger(hu), level(l), levelPoints(lp), pollutionLevel(p), cityName(cn) { upgrade.level = up; }
     
         void enter() {
             clearScreen();
             cout << SCHOOL_ART;
             while (true) {
-                displayStatus(0, health, hunger, level, levelPoints, ecoPoints, pollutionLevel, cityName);
+                displayStatus(funds, health, hunger, level, levelPoints, ecoPoints, pollutionLevel, cityName);
                 cout << "\n🎓 Welcome to School (Level " << upgrade.level << ")!\n";
-                cout << "1. 📚 Study (+" << (SCHOOL_STUDY_ECO_POINTS * upgrade.level) << " ecoPoints)\n";
+                cout << "1. 📚 Study and Solve Riddles (+" << (SCHOOL_STUDY_ECO_POINTS * upgrade.level) << " ecoPoints if correct)\n";
                 if (upgrade.canUpgrade()) cout << "2. Upgrade School (Cost: " << upgrade.upgradeCost() << " funds)\n";
                 cout << "3. 🚪 Exit School\n";
                 cout << "Choose an option: ";
@@ -705,12 +1138,9 @@ class School {
                 cin.ignore();
     
                 if (choice == 1) {
-                    cout << "📚 Studying... (4 seconds)\n";
-                    this_thread::sleep_for(chrono::seconds(4));
-                    ecoPoints += SCHOOL_STUDY_ECO_POINTS * upgrade.level;
-                    cout << "You gained " << SCHOOL_STUDY_ECO_POINTS * upgrade.level << " ecoPoints! (Total ecoPoints: " << ecoPoints << ")\n";
+                    studySession();
                 } else if (choice == 2 && upgrade.canUpgrade()) {
-                    upgrade.upgrade(ecoPoints);
+                    upgrade.upgrade(funds);
                 } else if ((choice == 2 && !upgrade.canUpgrade()) || choice == 3) {
                     cout << "🚶 Leaving School...\n";
                     clearScreen();
@@ -751,7 +1181,7 @@ class Bank {
             while (true) {
                 displayStatus(funds, health, hunger, level, levelPoints, ecoPoints, pollutionLevel, cityName);
                 cout << "\n🏦 Welcome to the Bank (Level " << upgrade.level << ")!\n";
-                cout << "1. 💰 Deposit and get interest (+" << (BANK_INTEREST_RATE * upgrade.level) << "% funds)\n";
+                cout << "1. 💰 Deposit and get interest (+" << (BANK_INTEREST_RATE * upgrade.level) << "% interest)\n";
                 if (upgrade.canUpgrade()) cout << "2. Upgrade Bank (Cost: " << upgrade.upgradeCost() << " funds)\n";
                 cout << "3. 🚪 Exit Bank\n";
                 cout << "Choose an option: ";
@@ -761,11 +1191,35 @@ class Bank {
                 cin.ignore();
     
                 if (choice == 1) {
-                    cout << "💰 Depositing and waiting for interest... (5 seconds)\n";
+                    cout << "\n💰 Current Balance: " << funds << " funds\n";
+                    cout << "Interest Rate: " << (BANK_INTEREST_RATE * upgrade.level) << "%\n";
+                    cout << "Enter amount to deposit (0 to cancel): ";
+                    int depositAmount;
+                    cin >> depositAmount;
+                    cin.ignore();
+                    
+                    if (depositAmount <= 0) {
+                        cout << "Deposit cancelled.\n";
+                        continue;
+                    }
+                    
+                    if (depositAmount > funds) {
+                        cout << "❌ Not enough funds!\n";
+                        continue;
+                    }
+                    
+                    cout << "💰 Depositing " << depositAmount << " funds and waiting for interest... (5 seconds)\n";
                     this_thread::sleep_for(chrono::seconds(5));
-                    int interest = (funds * BANK_INTEREST_RATE * upgrade.level) / 100;
+                    
+                    int interest = (depositAmount * BANK_INTEREST_RATE * upgrade.level) / 100;
                     funds += interest;
                     cout << "You earned " << interest << " funds as interest! (Total funds: " << funds << ")\n";
+                    
+                    // Generate news about the deposit
+                    string title = "Bank Deposit in " + cityName;
+                    string content = "A citizen made a deposit of " + to_string(depositAmount) + " funds and earned " + to_string(interest) + " funds in interest.";
+                    generateNews("💰 Economy", title, content);
+                    
                 } else if (choice == 2 && upgrade.canUpgrade()) {
                     upgrade.upgrade(funds);
                 } else if ((choice == 2 && !upgrade.canUpgrade()) || choice == 3) {
@@ -926,8 +1380,15 @@ private:
     void plantTree() {
         if (funds >= TREE_COST * upgrade.level) {
             funds -= TREE_COST * upgrade.level;
+            if (pollutionLevel > 0) {
+                pollutionLevel = max(0, pollutionLevel - (TREE_POLLUTION_REDUCTION * upgrade.level));
+                cout << "🌱 Tree planted! Pollution reduced to " << pollutionLevel << "\n";
+            } else {
+                ecoPoints += 10 * upgrade.level;
+                cout << "🌱 Tree planted! Pollution already at zero. Gained " << (10 * upgrade.level) << " eco points!\n";
+            }
             ecoPoints += TREE_ECO_POINTS * upgrade.level;
-            pollutionLevel -= TREE_POLLUTION_REDUCTION * upgrade.level;
+            updateLevel(level, levelPoints, ecoPoints, pollutionLevel);
             treesPlanted++;
             
             // Generate news about tree planting
@@ -935,7 +1396,7 @@ private:
             string content = "The Environment Center has successfully planted new trees, contributing to the city's green initiative. Total trees planted: " + to_string(treesPlanted);
             generateNews("🌱 Environmental", title, content, true);
             
-            cout << "🌱 Tree planted! Total trees: " << treesPlanted << "\n";
+            cout << "Total trees: " << treesPlanted << "\n";
             achievements.treesPlanted++;
             achievements.checkAndUnlock();
             resetChallengeIfNeeded(dailyChallenge);
@@ -959,12 +1420,39 @@ private:
     }
 };
 
+// Add this function before the Summit class
+vector<string> findFiles(const string& prefix) {
+    vector<string> files;
+    ifstream file;
+    string filename;
+    
+    // Try to open a file with the prefix
+    file.open(prefix + ".txt");
+    if (file.is_open()) {
+        file.close();
+        files.push_back(prefix + ".txt");
+    }
+    
+    // Try to open a file with the prefix and a number
+    for (int i = 0; i <= 9; i++) {
+        filename = prefix + to_string(i) + ".txt";
+        file.open(filename);
+        if (file.is_open()) {
+            file.close();
+            files.push_back(filename);
+        }
+    }
+    
+    return files;
+}
+
 // --------- Summit Class ---------
 class Summit {
 private:
     int& funds;
     int& ecoPoints;
     int& level;
+    int& pollutionLevel;  // Add pollutionLevel reference
     string currentUser;
     string secondUser;
     int secondUserFunds;
@@ -1036,9 +1524,52 @@ private:
         out.close();
     }
 
+    // In the Summit class, add this function before the enter() method
+    private:
+        void compareCityStats(const string& currentUser, const string& secondUser, int currentFunds, int secondFunds, 
+                             int currentEco, int secondEco, int currentPollution, int secondPollution,
+                             int currentLevel, int secondLevel) {
+            cout << "\n🏙️ City Statistics Comparison\n";
+            cout << "==========================\n\n";
+            
+            // Calculate the maximum length of city names for alignment
+            int maxNameLength = max(currentUser.length(), secondUser.length());
+            
+            // Print header
+            cout << setw(maxNameLength + 2) << "City" << " | " 
+                 << setw(8) << "Funds" << " | " 
+                 << setw(8) << "Eco" << " | " 
+                 << setw(10) << "Pollution" << " | " 
+                 << setw(6) << "Level" << endl;
+            
+            // Print separator
+            cout << string(maxNameLength + 2, '-') << "-+-" 
+                 << string(8, '-') << "-+-" 
+                 << string(8, '-') << "-+-" 
+                 << string(10, '-') << "-+-" 
+                 << string(6, '-') << endl;
+            
+            // Print current user's stats
+            cout << setw(maxNameLength + 2) << currentUser << " | " 
+                 << setw(8) << currentFunds << " | " 
+                 << setw(8) << currentEco << " | " 
+                 << setw(10) << currentPollution << " | " 
+                 << setw(6) << currentLevel << endl;
+            
+            // Print second user's stats
+            cout << setw(maxNameLength + 2) << secondUser << " | " 
+                 << setw(8) << secondFunds << " | " 
+                 << setw(8) << secondEco << " | " 
+                 << setw(10) << secondPollution << " | " 
+                 << setw(6) << secondLevel << endl;
+            
+            cout << "\nPress Enter to continue...";
+            cin.ignore();
+        }
+
 public:
-    Summit(int& f, int& e, int& l, const string& user, bool& hLoan, int& lAmount, string& lName, string& lStartDate)
-        : funds(f), ecoPoints(e), level(l), currentUser(user), loanAmount(lAmount), hasLoan(hLoan), lenderName(lName), loanStartDate(lStartDate) {}
+    Summit(int& f, int& e, int& l, int& p, const string& user, bool& hLoan, int& lAmount, string& lName, string& lStartDate)
+        : funds(f), ecoPoints(e), level(l), pollutionLevel(p), currentUser(user), loanAmount(lAmount), hasLoan(hLoan), lenderName(lName), loanStartDate(lStartDate) {}
 
     void enter() {
         if (level < SUMMIT_REQUIRED_LEVEL) {
@@ -1080,163 +1611,245 @@ public:
             cout << "5. Sign Eco-Partnership Agreement\n";
             cout << "6. Request Loan\n";
             cout << "7. Repay Loan\n";
-            cout << "8. End Summit\n";
+            cout << "8. Compare City Statistics\n";
+            cout << "9. End Summit\n";
             cout << "Choose an activity: ";
             int choice;
             cin >> choice;
             cin.ignore();
-            int requestAmount = 0;
-            int payment = 0;
-            int repayAmount = 0;
-            switch (choice) {
-                case 1:
-                    cout << "\n🌱 " << currentUser << " and " << secondUser << " share their eco-friendly practices:\n";
-                    cout << "- Using reusable shopping bags\n";
-                    cout << "- Implementing water conservation techniques\n";
-                    cout << "- Reducing plastic waste\n";
-                    cout << "- Using public transportation\n";
-                    cout << "- Composting organic waste\n";
-                    cout << "- Using energy-efficient appliances\n";
-                    cout << "- Participating in local environmental programs\n";
-                    break;
-                case 2:
-                    cout << "\n🌫️ " << currentUser << " and " << secondUser << " discuss pollution reduction:\n";
-                    cout << "- Implementing green energy solutions\n";
-                    cout << "- Reducing carbon footprint\n";
-                    cout << "- Promoting recycling programs\n";
-                    cout << "- Supporting clean air initiatives\n";
-                    cout << "- Developing waste management systems\n";
-                    cout << "- Creating green spaces in urban areas\n";
-                    cout << "- Implementing sustainable transportation\n";
-                    break;
-                case 3:
-                    cout << "\n🧹 " << currentUser << " and " << secondUser << " plan community cleanup:\n";
-                    cout << "- Organizing monthly cleanup drives\n";
-                    cout << "- Planting trees in public spaces\n";
-                    cout << "- Creating awareness campaigns\n";
-                    cout << "- Establishing recycling centers\n";
-                    cout << "- Setting up community gardens\n";
-                    cout << "- Organizing environmental workshops\n";
-                    cout << "- Implementing neighborhood composting\n";
-                    break;
-                case 4:
-                    cout << "\n📚 " << currentUser << " and " << secondUser << " exchange environmental knowledge:\n";
-                    cout << "- Sustainable farming techniques\n";
-                    cout << "- Renewable energy solutions\n";
-                    cout << "- Waste management strategies\n";
-                    cout << "- Environmental conservation methods\n";
-                    cout << "- Water conservation techniques\n";
-                    cout << "- Green building practices\n";
-                    cout << "- Wildlife protection strategies\n";
-                    break;
-                case 5:
-                    cout << "\n🤝 " << currentUser << " and " << secondUser << " sign an eco-partnership agreement:\n";
-                    cout << "- Committing to reduce carbon emissions\n";
-                    cout << "- Supporting each other's green initiatives\n";
-                    cout << "- Sharing resources and knowledge\n";
-                    cout << "- Working together for a sustainable future\n";
-                    cout << "- Regular environmental progress meetings\n";
-                    cout << "- Joint community projects\n";
-                    cout << "- Resource sharing program\n";
-                    break;
-                case 6:
-                    if (hasLoan) {
-                        cout << "❌ You already have an active loan!\n";
-                        break;
+
+            if (choice == 1) {
+                cout << "\n🌱 " << currentUser << " and " << secondUser << " share their eco-friendly practices:\n";
+                cout << "- Using reusable shopping bags\n";
+                cout << "- Implementing water conservation techniques\n";
+                cout << "- Reducing plastic waste\n";
+                cout << "- Using public transportation\n";
+                cout << "- Composting organic waste\n";
+                cout << "- Using energy-efficient appliances\n";
+                cout << "- Participating in local environmental programs\n";
+            }
+            else if (choice == 2) {
+                cout << "\n🌫️ " << currentUser << " and " << secondUser << " discuss pollution reduction:\n";
+                cout << "- Implementing green energy solutions\n";
+                cout << "- Reducing carbon footprint\n";
+                cout << "- Promoting recycling programs\n";
+                cout << "- Supporting clean air initiatives\n";
+                cout << "- Developing waste management systems\n";
+                cout << "- Creating green spaces in urban areas\n";
+                cout << "- Implementing sustainable transportation\n";
+            }
+            else if (choice == 3) {
+                cout << "\n🧹 " << currentUser << " and " << secondUser << " plan community cleanup:\n";
+                cout << "- Organizing monthly cleanup drives\n";
+                cout << "- Planting trees in public spaces\n";
+                cout << "- Creating awareness campaigns\n";
+                cout << "- Establishing recycling centers\n";
+                cout << "- Setting up community gardens\n";
+                cout << "- Organizing environmental workshops\n";
+                cout << "- Implementing neighborhood composting\n";
+            }
+            else if (choice == 4) {
+                cout << "\n📚 " << currentUser << " and " << secondUser << " exchange environmental knowledge:\n";
+                cout << "- Sustainable farming techniques\n";
+                cout << "- Renewable energy solutions\n";
+                cout << "- Waste management strategies\n";
+                cout << "- Environmental conservation methods\n";
+                cout << "- Water conservation techniques\n";
+                cout << "- Green building practices\n";
+                cout << "- Wildlife protection strategies\n";
+            }
+            else if (choice == 5) {
+                cout << "\n🤝 " << currentUser << " and " << secondUser << " sign an eco-partnership agreement:\n";
+                cout << "- Committing to reduce carbon emissions\n";
+                cout << "- Supporting each other's green initiatives\n";
+                cout << "- Sharing resources and knowledge\n";
+                cout << "- Working together for a sustainable future\n";
+                cout << "- Regular environmental progress meetings\n";
+                cout << "- Joint community projects\n";
+                cout << "- Resource sharing program\n";
+            }
+            else if (choice == 6) {
+                if (hasLoan) {
+                    cout << "❌ You already have an active loan!\n";
+                    continue;
+                }
+                cout << "\n💰 Loan Request\n";
+                cout << secondUser << "'s available funds: " << secondUserFunds << "\n";
+                cout << "Enter amount to request (0 to cancel): ";
+                int requestAmount;
+                cin >> requestAmount;
+                cin.ignore();
+                if (requestAmount <= 0) {
+                    cout << "Loan request cancelled.\n";
+                    continue;
+                }
+                if (requestAmount > secondUserFunds) {
+                    cout << "❌ " << secondUser << " doesn't have enough funds!\n";
+                    continue;
+                }
+                
+                cout << "\nPlease ask " << secondUser << " to confirm the loan.\n";
+                cout << "Enter " << secondUser << "'s PIN to confirm the loan: ";
+                string confirmPin;
+                cin >> confirmPin;
+                cin.ignore();
+                
+                if (confirmPin != secondPin) {
+                    cout << "❌ Invalid PIN! Loan request denied.\n";
+                    continue;
+                }
+                
+                cout << "\nLoan confirmed by " << secondUser << ".\n";
+                loanAmount = requestAmount;
+                hasLoan = true;
+                lenderName = secondUser;
+                funds += loanAmount;
+                secondUserFunds -= loanAmount;
+                
+                // Update both users' files
+                updateUserFunds(secondUserFile, secondUserFunds);
+                string loanFile = currentUser + "_" + lenderName + ".txt";
+                updateLoanStatus(loanFile, hasLoan, loanAmount, lenderName);
+                updateLoanStatus(secondUserFile, false, 0, "");
+                
+                cout << "✅ Loan of " << loanAmount << " funds received from " << secondUser << "!\n";
+                cout << "You will need to repay " << (loanAmount + (loanAmount * LOAN_INTEREST_RATE / 100)) << " funds.\n";
+                achievements.loansRepaid++;
+                achievements.checkAndUnlock();
+                loanStartDate = getCurrentDateStrLoan();
+                leaveMessage(secondUserFile, currentUser, "loan request");
+            }
+            else if (choice == 7) {
+                if (!hasLoan) {
+                    cout << "❌ You don't have any active loans!\n";
+                    continue;
+                }
+                
+                // Try to find the lender's file
+                string lenderFile = lenderName + "_" + secondPin + ".txt";
+                ifstream checkFile(lenderFile);
+                if (!checkFile.good()) {
+                    cout << "❌ Could not find lender's file! Please make sure the lender is present at the summit.\n";
+                    continue;
+                }
+                
+                int lenderFunds = 0;
+                loadSecondUserData(lenderFile, lenderFunds);
+                
+                int repayAmount = loanAmount + (loanAmount * LOAN_INTEREST_RATE / 100);
+                if (hasLoan && !loanStartDate.empty()) {
+                    int days = daysBetween(loanStartDate, getCurrentDateStrLoan());
+                    if (days > LOAN_DAYS_BEFORE_PENALTY) {
+                        int penalty = (loanAmount * LOAN_LATE_PENALTY / 100);
+                        repayAmount += penalty;
+                        cout << "⚠️ Late repayment! Extra penalty applied: " << penalty << " funds.\n";
                     }
-                    cout << "\n💰 Loan Request\n";
-                    cout << secondUser << "'s available funds: " << secondUserFunds << "\n";
-                    cout << "Enter amount to request (0 to cancel): ";
-                    cin >> requestAmount;
-                    cin.ignore();
-                    if (requestAmount <= 0) {
-                        cout << "Loan request cancelled.\n";
-                        break;
-                    }
-                    if (requestAmount > secondUserFunds) {
-                        cout << "❌ " << secondUser << " doesn't have enough funds!\n";
-                        break;
-                    }
-                    loanAmount = requestAmount;
-                    hasLoan = true;
-                    lenderName = secondUser;
-                    funds += loanAmount;
-                    secondUserFunds -= loanAmount;
-                    // Update both users' files
-                    updateUserFunds(secondUserFile, secondUserFunds);
-                    updateLoanStatus(currentUser + "_" + lenderName + ".txt", hasLoan, loanAmount, lenderName);
-                    updateLoanStatus(secondUserFile, false, 0, "");
-                    cout << "✅ Loan of " << loanAmount << " funds received from " << secondUser << "!\n";
-                    cout << "You will need to repay " << (loanAmount + (loanAmount * LOAN_INTEREST_RATE / 100)) << " funds.\n";
-                    achievements.loansRepaid++;
-                    achievements.checkAndUnlock();
-                    loanStartDate = getCurrentDateStrLoan();
-                    leaveMessage(secondUserFile, currentUser, "loan request");
-                    break;
-                case 7:
-                    if (!hasLoan) {
-                        cout << "❌ You don't have any active loans!\n";
-                        break;
-                    }
-                    repayAmount = loanAmount + (loanAmount * LOAN_INTEREST_RATE / 100);
-                    if (hasLoan && !loanStartDate.empty()) {
-                        int days = daysBetween(loanStartDate, getCurrentDateStrLoan());
-                        if (days > LOAN_DAYS_BEFORE_PENALTY) {
-                            int penalty = (loanAmount * LOAN_LATE_PENALTY / 100);
-                            repayAmount += penalty;
-                            cout << "⚠️ Late repayment! Extra penalty applied: " << penalty << " funds.\n";
-                        }
-                    }
-                    cout << "\n💰 Loan Repayment\n";
-                    cout << "Amount to repay: " << repayAmount << " funds\n";
-                    cout << "Your current funds: " << funds << "\n";
-                    cout << "Enter amount to repay (0 to cancel): ";
-                    cin >> payment;
-                    cin.ignore();
-                    if (payment <= 0) {
-                        cout << "Repayment cancelled.\n";
-                        break;
-                    }
-                    if (payment > funds) {
-                        cout << "❌ You don't have enough funds!\n";
-                        break;
-                    }
-                    if (payment < repayAmount) {
-                        cout << "⚠️ Partial payment made. You still owe " << (repayAmount - payment) << " funds.\n";
-                        loanAmount = repayAmount - payment;
-                        funds -= payment;
-                        updateLoanStatus(currentUser + "_" + lenderName + ".txt", hasLoan, loanAmount, lenderName);
+                }
+                
+                cout << "\n💰 Loan Repayment\n";
+                cout << "Amount to repay: " << repayAmount << " funds\n";
+                cout << "Your current funds: " << funds << "\n";
+                cout << "Enter amount to repay (0 to cancel): ";
+                int payment;
+                cin >> payment;
+                cin.ignore();
+                
+                if (payment <= 0) {
+                    cout << "Repayment cancelled.\n";
+                    continue;
+                }
+                if (payment > funds) {
+                    cout << "❌ You don't have enough funds!\n";
+                    continue;
+                }
+                
+                // Process payment
+                funds -= payment;
+                lenderFunds += payment;
+                
+                // Update lender's file by reading all lines and updating funds
+                vector<string> lines;
+                string line;
+                ifstream inFile(lenderFile);
+                while (getline(inFile, line)) {
+                    if (line.find("funds:") == 0) {
+                        lines.push_back("funds: " + to_string(lenderFunds));
                     } else {
-                        cout << "✅ Loan fully repaid!\n";
-                        funds -= repayAmount;
-                        loanAmount = 0;
-                        hasLoan = false;
-                        lenderName = "";
-                        updateLoanStatus(currentUser + "_" + lenderName + ".txt", hasLoan, loanAmount, lenderName);
-                        loanStartDate = "";
+                        lines.push_back(line);
                     }
-                    achievements.loansRepaid++;
-                    achievements.checkAndUnlock();
-                    break;
-                case 8:
-                    cout << "\n✅ Summit completed successfully!\n";
-                    cout << "💰 Cost: " << SUMMIT_FUNDS_COST << " funds\n";
-                    cout << "🌱 Gained: " << SUMMIT_ECO_POINTS << " eco points\n";
-                    funds -= SUMMIT_FUNDS_COST;
-                    ecoPoints += SUMMIT_ECO_POINTS;
-                    achievements.summitsHosted++;
-                    achievements.checkAndUnlock();
-                    resetChallengeIfNeeded(weeklyChallenge);
-                    if (!weeklyChallenge.completed) {
-                        weeklyChallenge.progress++;
-                        checkChallengeCompletion(weeklyChallenge, funds, ecoPoints);
-                    }
-                    leaveMessage(secondUserFile, currentUser, "eco summit");
-                    clearScreen();
-                    return;
-                default:
-                    cout << "Invalid choice!\n";
-                    break;
+                }
+                inFile.close();
+                
+                // Write back all lines with updated funds
+                ofstream outFile(lenderFile);
+                for (const auto& l : lines) {
+                    outFile << l << endl;
+                }
+                outFile.close();
+                
+                if (payment < repayAmount) {
+                    cout << "⚠️ Partial payment made. You still owe " << (repayAmount - payment) << " funds.\n";
+                    loanAmount = repayAmount - payment;
+                    updateLoanStatus(currentUser + "_" + lenderName + ".txt", hasLoan, loanAmount, lenderName);
+                } else {
+                    cout << "✅ Loan fully repaid!\n";
+                    loanAmount = 0;
+                    hasLoan = false;
+                    lenderName = "";
+                    updateLoanStatus(currentUser + "_" + lenderName + ".txt", hasLoan, loanAmount, lenderName);
+                    loanStartDate = "";
+                }
+                
+                achievements.loansRepaid++;
+                achievements.checkAndUnlock();
+                
+                // Notify lender of repayment
+                notifyLenderOfRepayment(lenderFile, currentUser);
+                
+                cout << "✅ Payment of " << payment << " funds has been transferred to " << lenderName << ".\n";
+                cout << "Lender's new balance: " << lenderFunds << " funds.\n";
+            }
+            else if (choice == 8) {
+                // Load second user's data
+                int secondEco = 0;
+                int secondPollution = 0;
+                int secondLevel = 0;
+                
+                ifstream secondFile(secondUserFile);
+                string line;
+                while (getline(secondFile, line)) {
+                    stringstream ss(line);
+                    string label;
+                    ss >> label;
+                    if (label == "ecopoints:") ss >> secondEco;
+                    else if (label == "pollutionlevel:") ss >> secondPollution;
+                    else if (label == "level:") ss >> secondLevel;
+                }
+                secondFile.close();
+                
+                compareCityStats(currentUser, secondUser, funds, secondUserFunds, 
+                               ecoPoints, secondEco, pollutionLevel, secondPollution,
+                               level, secondLevel);
+            }
+            else if (choice == 9) {
+                cout << "\n✅ Summit completed successfully!\n";
+                cout << "💰 Cost: " << SUMMIT_FUNDS_COST << " funds\n";
+                cout << "🌱 Gained: " << SUMMIT_ECO_POINTS << " eco points\n";
+                funds -= SUMMIT_FUNDS_COST;
+                ecoPoints += SUMMIT_ECO_POINTS;
+                achievements.summitsHosted++;
+                achievements.checkAndUnlock();
+                resetChallengeIfNeeded(weeklyChallenge);
+                if (!weeklyChallenge.completed) {
+                    weeklyChallenge.progress++;
+                    checkChallengeCompletion(weeklyChallenge, funds, ecoPoints);
+                }
+                leaveMessage(secondUserFile, currentUser, "eco summit");
+                clearScreen();
+                return;
+            }
+            else {
+                cout << "Invalid choice!\n";
             }
         }
     }
@@ -1272,14 +1885,19 @@ public:
             if (choice == 1) {
                 int reduction = 10 * upgrade.level;
                 int oldPollution = pollutionLevel;
-                pollutionLevel = max(0, pollutionLevel - reduction);
+                if (pollutionLevel > 0) {
+                    pollutionLevel = max(0, pollutionLevel - reduction);
+                    cout << "You recycled waste! Pollution reduced from " << oldPollution << " to " << pollutionLevel << ".\n";
+                } else {
+                    ecoPoints += 10 * upgrade.level;
+                    cout << "You recycled waste! Pollution already at zero. Gained " << (10 * upgrade.level) << " eco points!\n";
+                }
                 
                 // Generate news about recycling
                 string title = "Recycling Initiative Success in " + cityName;
                 string content = "The Recycling Center has successfully processed waste, reducing pollution from " + to_string(oldPollution) + " to " + to_string(pollutionLevel);
                 generateNews("🌱 Environmental", title, content);
                 
-                cout << "You recycled waste! Pollution reduced from " << oldPollution << " to " << pollutionLevel << ".\n";
                 this_thread::sleep_for(chrono::seconds(2));
                 clearScreen();
             } else if (choice == 2 && upgrade.canUpgrade()) {
@@ -1437,8 +2055,7 @@ void generateRandomNews(int level, int ecoPoints, int pollutionLevel, const stri
 
 void showNewsFeed() {
     clearScreen();
-    cout << "\n📰 Environmental News Feed\n";
-    cout << "========================\n\n";
+    const int MAX_NEWS_TO_SHOW = 5;  // Show only 5 most recent news items per page
     
     ifstream in("news_feed.txt");
     if (!in.is_open()) {
@@ -1449,24 +2066,85 @@ void showNewsFeed() {
         return;
     }
     
+    // Read all news items into a vector
+    vector<string> newsItems;
     string line;
-    bool hasNews = false;
-    
     while (getline(in, line)) {
         if (!line.empty()) {
-            hasNews = true;
-            cout << line << "\n";
+            newsItems.push_back(line);
         }
     }
+    in.close();
     
-    if (!hasNews) {
+    size_t totalItems = newsItems.size();
+    if (totalItems == 0) {
         cout << "No news to display yet. Take actions in the city to generate news!\n";
+        cout << "\nPress Enter to continue...";
+        cin.ignore();
+        clearScreen();
+        return;
     }
+
+    size_t currentPage = 0;
+    size_t totalPages = (totalItems + MAX_NEWS_TO_SHOW - 1) / MAX_NEWS_TO_SHOW;
     
-    cout << "\nPress Enter to continue...";
-    cin.ignore();
-    cin.get();
-    clearScreen();
+    while (true) {
+        clearScreen();
+        cout << "\n📰 Environmental News Feed\n";
+        cout << "========================\n\n";
+        
+        // Calculate start and end indices for current page
+        size_t startIdx = totalItems - (currentPage + 1) * MAX_NEWS_TO_SHOW;
+        size_t endIdx = totalItems - currentPage * MAX_NEWS_TO_SHOW;
+        
+        // Adjust startIdx if it would be negative
+        if (startIdx > totalItems) startIdx = 0;
+        
+        // Display news items for current page
+        for (size_t i = startIdx; i < endIdx; i++) {
+            cout << newsItems[i] << "\n";
+        }
+        
+        cout << "\nPage " << (currentPage + 1) << " of " << totalPages;
+        cout << " (Showing " << (endIdx - startIdx) << " of " << totalItems << " news items)\n";
+        cout << "\nOptions:\n";
+        cout << "1. Next Page\n";
+        cout << "2. Previous Page\n";
+        cout << "3. Exit News Feed\n";
+        cout << "Choose an option: ";
+        
+        int choice;
+        cin >> choice;
+        cin.ignore();
+        
+        switch (choice) {
+            case 1: // Next Page
+                if (currentPage < totalPages - 1) {
+                    currentPage++;
+                } else {
+                    cout << "\nYou're already on the last page!\n";
+                    cout << "Press Enter to continue...";
+                    cin.get();
+                }
+                break;
+            case 2: // Previous Page
+                if (currentPage > 0) {
+                    currentPage--;
+                } else {
+                    cout << "\nYou're already on the first page!\n";
+                    cout << "Press Enter to continue...";
+                    cin.get();
+                }
+                break;
+            case 3: // Exit
+                clearScreen();
+                return;
+            default:
+                cout << "\nInvalid option! Press Enter to continue...";
+                cin.get();
+                break;
+        }
+    }
 }
 
 struct RandomEvent {
@@ -1554,9 +2232,22 @@ void displayStatus(int funds, int health, int hunger, int level, int levelPoints
 }
 
 void updateLevel(int& level, int& levelPoints, int ecoPoints, int pollutionLevel) {
+    // Calculate total points considering eco points and pollution penalty
     int totalPoints = ecoPoints - (pollutionLevel * POLLUTION_PENALTY);
+    if (totalPoints < 0) totalPoints = 0;
+    
+    // Calculate level points (remainder after dividing by threshold)
     levelPoints = totalPoints % LEVEL_UP_THRESHOLD;
-    level = (totalPoints / LEVEL_UP_THRESHOLD) + 1;
+    
+    // Calculate new level
+    int newLevel = (totalPoints / LEVEL_UP_THRESHOLD) + 1;
+    
+    // Check if level up occurred
+    if (newLevel > level) {
+        level = newLevel;
+        cout << "\n🎉 Level Up! You are now level " << level << "!\n";
+        cout << "You need " << ((level * LEVEL_UP_THRESHOLD) - totalPoints) << " more points for the next level.\n";
+    }
 }
 
 void updateHungerAndHealth(int& health, int& hunger, time_t& lastUpdateTime) {
@@ -1564,10 +2255,20 @@ void updateHungerAndHealth(int& health, int& hunger, time_t& lastUpdateTime) {
     int timeDiff = static_cast<int>(difftime(currentTime, lastUpdateTime));
     
     if (timeDiff >= 60) { // Update every minute
+        // Decrease hunger
         hunger = max(0, hunger - (HUNGER_DECREASE_RATE * (timeDiff / 60)));
-        if (hunger < 20) {
-            health = max(0, health - (HEALTH_DECREASE_RATE * (timeDiff / 60)));
+        
+        // Always decrease health by 1 per minute
+        health = max(0, health - (HEALTH_DECREASE_RATE * (timeDiff / 60)));
+        
+        // Additional health decrease if hunger is low
+        if (hunger < HUNGER_THRESHOLD) {
+            health = max(0, health - (HEALTH_DECREASE_RATE_LOW_HUNGER * (timeDiff / 60)));
+            cout << "\n⚠️ Warning: Low hunger! Health is decreasing rapidly.\n";
+            cout << "Current Health: " << health << "/" << MAX_HEALTH << "\n";
+            cout << "Current Hunger: " << hunger << "/" << MAX_HUNGER << "\n";
         }
+        
         lastUpdateTime = currentTime;
     }
 }
@@ -1587,7 +2288,11 @@ void transport_delay(int vehicle, int& ecoPoints, int& pollutionLevel) {
             cout << "🚗 Driving...\n";
             this_thread::sleep_for(chrono::seconds(CAR_DELAY));
             ecoPoints -= CAR_ECO_PENALTY;
-            pollutionLevel += CAR_POLLUTION_INCREASE;
+            if (pollutionLevel > 0) {
+                pollutionLevel = min(100, pollutionLevel + CAR_POLLUTION_INCREASE);
+            } else {
+                ecoPoints -= 10; // Extra penalty for using car when pollution is zero
+            }
             break;
         case 3: // Electric Car
             cout << "🚗 Driving (Electric)...\n";
@@ -1620,7 +2325,7 @@ void offline_bonus(int& funds, time_t& lastSaveTime) {
 bool load_game(string filename, int& level, int& ecopoints, int& funds, int& health, int& hunger,
     int &houseUp, int &hospitalUp, int &officeUp, int &restaurantUp, int &schoolUp, int &bankUp, int &casinoUp, int &envUp, int &recUp, int &gardenUp,
     int& vehicle, int& pollutionlevel, time_t& lastSaveTime, int& levelPoints,
-    bool &hasLoan, int &loanAmount, string &lenderName, string &loanStartDate, string &cityName) {
+    bool &hasLoan, int &loanAmount, string &lenderName, string &loanStartDate, string &cityName, int& daysWithZeroPollution) {
     ifstream file(filename);
     if (!file.is_open()) return false;
     string line;
@@ -1655,6 +2360,7 @@ bool load_game(string filename, int& level, int& ecopoints, int& funds, int& hea
         else if (label == "hasBicycle:") ss >> hasBicycle;
         else if (label == "hasCar:") ss >> hasCar;
         else if (label == "hasElectricCar:") ss >> hasElectricCar;
+        else if (label == "daysWithZeroPollution:") ss >> daysWithZeroPollution;
     }
     file.close();
     return true;
@@ -1662,14 +2368,14 @@ bool load_game(string filename, int& level, int& ecopoints, int& funds, int& hea
 
 void save_game(string filename, int level, int ecopoints, int funds, int health, int hunger,
     int houseUp, int hospitalUp, int officeUp, int restaurantUp, int schoolUp, int bankUp, int casinoUp, int envUp, int recUp, int gardenUp,
-    int vehicle, int pollutionlevel, time_t lastSaveTime, int levelPoints, bool hasLoan, int loanAmount, string lenderName, string loanStartDate, string cityName) {
+    int vehicle, int pollutionlevel, time_t lastSaveTime, int levelPoints, bool hasLoan, int loanAmount, string lenderName, string loanStartDate, string cityName, int daysWithZeroPollution) {
     ofstream file(filename);
     if (file.is_open()) {
         file << "level: " << level << endl;
         file << "ecopoints: " << ecopoints << endl;
         file << "funds: " << funds << endl;
-        file << "health: " << health << endl;
-        file << "hunger: " << hunger << endl;
+        file << "health: " << health << endl;  // Ensure health is saved
+        file << "hunger: " << hunger << endl;  // Ensure hunger is saved
         file << "houseUp: " << houseUp << endl;
         file << "hospitalUp: " << hospitalUp << endl;
         file << "officeUp: " << officeUp << endl;
@@ -1692,17 +2398,17 @@ void save_game(string filename, int level, int ecopoints, int funds, int health,
         file << "hasBicycle: " << hasBicycle << endl;
         file << "hasCar: " << hasCar << endl;
         file << "hasElectricCar: " << hasElectricCar << endl;
+        file << "daysWithZeroPollution: " << daysWithZeroPollution << endl;
         file.close();
     }
 }
 
 // ------------ Main Menu ------------
 void menu(int &funds, int &vehicle, int &level, time_t &lastUpdateTime, int &ecopoints, int &health, int &hunger, int &levelPoints, int &pollutionLevel, const string& currentUser, bool &hasLoan, int &loanAmount, string &lenderName, string &loanStartDate,
-    int &houseUp, int &hospitalUp, int &officeUp, int &restaurantUp, int &schoolUp, int &bankUp, int &casinoUp, int &envUp, int &recUp, int &gardenUp, const string& cityName)
+    int &houseUp, int &hospitalUp, int &officeUp, int &restaurantUp, int &schoolUp, int &bankUp, int &casinoUp, int &envUp, int &recUp, int &gardenUp, const string& cityName, int &daysWithZeroPollution)
 {
     time_t lastHealthUpdate = time(nullptr);
     int initialFunds = funds;
-    static int daysWithZeroPollution = 0;
     static int lastMenuVisit = 0;  // Track menu visits instead of real time
     
     while (true)
@@ -1724,7 +2430,7 @@ void menu(int &funds, int &vehicle, int &level, time_t &lastUpdateTime, int &eco
         if (lastMenuVisit >= 10) {  // One in-game day has passed
             if (pollutionLevel == 0) {
                 daysWithZeroPollution++;
-                if (level >= 10 && daysWithZeroPollution >= 5) {
+                if (level >= WIN_REQUIRED_LEVEL && daysWithZeroPollution >= WIN_REQUIRED_DAYS) {
                     clearScreen();
                     cout << "\n🎉 VICTORY! 🎉\n";
                     cout << "You have achieved the ultimate eco-city!\n";
@@ -1752,19 +2458,19 @@ void menu(int &funds, int &vehicle, int &level, time_t &lastUpdateTime, int &eco
         displayStatus(funds, health, hunger, level, levelPoints, ecopoints, pollutionLevel, cityName);
 
         cout << "\n--- Eco City Menu ---\n";
-        cout << "1. Go to House\n";
-        cout << "2. Go to Hospital\n";
-        cout << "3. Go to Office\n";
-        cout << "4. Go to Restaurant\n";
-        cout << "5. Go to School\n";
-        cout << "6. Go to Bank\n";
-        cout << "7. Go to Casino\n";
-        cout << "8. Change Transport Mode\n";
-        cout << "9. View Instructions\n";
-        cout << "10. Environment Center\n";
-        cout << "11. Host Eco Summit\n";
-        cout << "12. View Achievements\n";
-        cout << "13. View Challenges\n";
+        cout << "1. View Instructions\n";
+        cout << "2. View Achievements\n";
+        cout << "3. View Challenges\n";
+        cout << "4. Change Transport Mode\n";
+        cout << "5. Go to House\n";
+        cout << "6. Go to Hospital\n";
+        cout << "7. Go to Office\n";
+        cout << "8. Go to Restaurant\n";
+        cout << "9. Go to School\n";
+        cout << "10. Go to Bank\n";
+        cout << "11. Go to Casino\n";
+        cout << "12. Environment Center\n";
+        cout << "13. Host Eco Summit\n";
         cout << "14. Recycling Center\n";
         cout << "15. Community Garden\n";
         cout << "16. View News Feed\n";
@@ -1778,34 +2484,15 @@ void menu(int &funds, int &vehicle, int &level, time_t &lastUpdateTime, int &eco
         switch (choice)
         {
             case 1:
-                transport_delay(vehicle, ecopoints, pollutionLevel);
-                { House h(funds, ecopoints, health, hunger, level, levelPoints, pollutionLevel, cityName, houseUp); h.enter(); houseUp = h.getUpgradeLevel(); }
+                displayInstructions("eco_city_instructions.txt");
                 break;
             case 2:
-                transport_delay(vehicle, ecopoints, pollutionLevel);
-                { Hospital h(funds, health, hunger, level, levelPoints, ecopoints, pollutionLevel, cityName, hospitalUp); h.enter(); hospitalUp = h.getUpgradeLevel(); }
+                achievements.display();
                 break;
             case 3:
-                transport_delay(vehicle, ecopoints, pollutionLevel);
-                { Office o(funds, health, hunger, level, levelPoints, ecopoints, pollutionLevel, cityName, officeUp); o.enter(); officeUp = o.getUpgradeLevel(); }
+                showChallenges();
                 break;
             case 4:
-                transport_delay(vehicle, ecopoints, pollutionLevel);
-                { Restaurant r(funds, ecopoints, hunger, health, level, levelPoints, pollutionLevel, cityName, restaurantUp); r.enter(); restaurantUp = r.getUpgradeLevel(); }
-                break;
-            case 5:
-                transport_delay(vehicle, ecopoints, pollutionLevel);
-                { School s(ecopoints, health, hunger, level, levelPoints, pollutionLevel, cityName, schoolUp); s.enter(); schoolUp = s.getUpgradeLevel(); }
-                break;
-            case 6:
-                transport_delay(vehicle, ecopoints, pollutionLevel);
-                { Bank b(funds, health, hunger, level, levelPoints, ecopoints, pollutionLevel, cityName, bankUp); b.enter(); bankUp = b.getUpgradeLevel(); }
-                break;
-            case 7:
-                transport_delay(vehicle, ecopoints, pollutionLevel);
-                { Casino c(funds, health, hunger, level, levelPoints, ecopoints, pollutionLevel, cityName, casinoUp); c.enter(); casinoUp = c.getUpgradeLevel(); }
-                break;
-            case 8:
                 cout << "\n=== Transport Options ===\n";
                 cout << "Current vehicle: ";
                 switch(vehicle) {
@@ -1908,21 +2595,40 @@ void menu(int &funds, int &vehicle, int &level, time_t &lastUpdateTime, int &eco
                     cout << "Invalid choice!\n";
                 }
                 break;
+            case 5:
+                transport_delay(vehicle, ecopoints, pollutionLevel);
+                { House h(funds, ecopoints, health, hunger, level, levelPoints, pollutionLevel, cityName, houseUp); h.enter(); houseUp = h.getUpgradeLevel(); }
+                break;
+            case 6:
+                transport_delay(vehicle, ecopoints, pollutionLevel);
+                { Hospital h(funds, health, hunger, level, levelPoints, ecopoints, pollutionLevel, cityName, hospitalUp); h.enter(); hospitalUp = h.getUpgradeLevel(); }
+                break;
+            case 7:
+                transport_delay(vehicle, ecopoints, pollutionLevel);
+                { Office o(funds, health, hunger, level, levelPoints, ecopoints, pollutionLevel, cityName, officeUp); o.enter(); officeUp = o.getUpgradeLevel(); }
+                break;
+            case 8:
+                transport_delay(vehicle, ecopoints, pollutionLevel);
+                { Restaurant r(funds, ecopoints, hunger, health, level, levelPoints, pollutionLevel, cityName, restaurantUp); r.enter(); restaurantUp = r.getUpgradeLevel(); }
+                break;
             case 9:
-                displayInstructions("eco_city_instructions.txt");
+                transport_delay(vehicle, ecopoints, pollutionLevel);
+                { School s(funds, ecopoints, health, hunger, level, levelPoints, pollutionLevel, cityName, schoolUp); s.enter(); schoolUp = s.getUpgradeLevel(); }
                 break;
             case 10:
-                { Environment e(funds, ecopoints, pollutionLevel, level, levelPoints, health, hunger, cityName, envUp); e.enter(); envUp = e.getUpgradeLevel(); }
+                transport_delay(vehicle, ecopoints, pollutionLevel);
+                { Bank b(funds, health, hunger, level, levelPoints, ecopoints, pollutionLevel, cityName, bankUp); b.enter(); bankUp = b.getUpgradeLevel(); }
                 break;
             case 11:
                 transport_delay(vehicle, ecopoints, pollutionLevel);
-                Summit(funds, ecopoints, level, currentUser, hasLoan, loanAmount, lenderName, loanStartDate).enter();
+                { Casino c(funds, health, hunger, level, levelPoints, ecopoints, pollutionLevel, cityName, casinoUp); c.enter(); casinoUp = c.getUpgradeLevel(); }
                 break;
             case 12:
-                achievements.display();
+                { Environment e(funds, ecopoints, pollutionLevel, level, levelPoints, health, hunger, cityName, envUp); e.enter(); envUp = e.getUpgradeLevel(); }
                 break;
             case 13:
-                showChallenges();
+                transport_delay(vehicle, ecopoints, pollutionLevel);
+                Summit(funds, ecopoints, level, pollutionLevel, currentUser, hasLoan, loanAmount, lenderName, loanStartDate).enter();
                 break;
             case 14:
                 { RecyclingCenter r(funds, pollutionLevel, level, levelPoints, ecopoints, health, hunger, cityName, recUp); r.enter(); recUp = r.getUpgradeLevel(); }
@@ -1967,6 +2673,7 @@ int main()
     string lenderName = "";
     string loanStartDate = "";
     string cityName = "";
+    int daysWithZeroPollution = 0;  // Initialize days with zero pollution
 
     string name, pin, filename;
     cout << "Enter your name: ";
@@ -1980,7 +2687,7 @@ int main()
 
     bool fileExists = load_game(filename, level, ecopoints, funds, health, hunger,
         houseUp, hospitalUp, officeUp, restaurantUp, schoolUp, bankUp, casinoUp, envUp, recUp, gardenUp,
-        vehicle, pollutionlevel, lastSaveTime, levelPoints, hasLoan, loanAmount, lenderName, loanStartDate, cityName);
+        vehicle, pollutionlevel, lastSaveTime, levelPoints, hasLoan, loanAmount, lenderName, loanStartDate, cityName, daysWithZeroPollution);
 
     if (!fileExists)
     {
@@ -2000,11 +2707,11 @@ int main()
                 "A new eco-friendly city has been established. Citizens are encouraged to participate in sustainable development.", true);
 
     menu(funds, vehicle, level, lastUpdateTime, ecopoints, health, hunger, levelPoints, pollutionlevel, currentUser, hasLoan, loanAmount, lenderName, loanStartDate,
-        houseUp, hospitalUp, officeUp, restaurantUp, schoolUp, bankUp, casinoUp, envUp, recUp, gardenUp, cityName);
+        houseUp, hospitalUp, officeUp, restaurantUp, schoolUp, bankUp, casinoUp, envUp, recUp, gardenUp, cityName, daysWithZeroPollution);
 
     save_game(filename, level, ecopoints, funds, health, hunger,
         houseUp, hospitalUp, officeUp, restaurantUp, schoolUp, bankUp, casinoUp, envUp, recUp, gardenUp,
-        vehicle, pollutionlevel, time(nullptr), levelPoints, hasLoan, loanAmount, lenderName, loanStartDate, cityName);
+        vehicle, pollutionlevel, time(nullptr), levelPoints, hasLoan, loanAmount, lenderName, loanStartDate, cityName, daysWithZeroPollution);
 
     cout << "Game saved. Goodbye!" << endl;
     return 0;

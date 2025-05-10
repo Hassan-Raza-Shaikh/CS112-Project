@@ -1,8 +1,8 @@
-level: 7
-ecopoints: 695
-funds: 8175
-health: 93
-hunger: 60
+level: 9
+ecopoints: 815
+funds: 7365
+health: 98
+hunger: 58
 houseUp: 3
 hospitalUp: 3
 officeUp: 3
@@ -10,13 +10,13 @@ restaurantUp: 3
 schoolUp: 2
 bankUp: 1
 casinoUp: 3
-envUp: 1
+envUp: 3
 recUp: 1
 gardenUp: 2
 vehicle: 0
-pollutionlevel: 45
-lastSaveTime: 1746809065
-levelPoints: 5
+pollutionlevel: 0
+lastSaveTime: 1746844407
+levelPoints: 15
 hasLoan: 0
 loanAmount: 0
 lenderName: 
@@ -25,3 +25,4 @@ cityName: LOL
 hasBicycle: 1
 hasCar: 1
 hasElectricCar: 1
+daysWithZeroPollution: 0

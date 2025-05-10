@@ -1,4 +1,4 @@
-level: 6
+level: 7
 ecopoints: 690
 funds: 4628
 health: 97
