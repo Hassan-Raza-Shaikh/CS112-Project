@@ -1,0 +1,3 @@
+hasLoan: 0
+loanAmount: 0
+lenderName: 
