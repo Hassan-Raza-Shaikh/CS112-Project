@@ -21,8 +21,8 @@ hasLoan: 0
 loanAmount: 0
 lenderName: 
 loanStartDate: 
-cityName: LOL
-hasBicycle: 1
-hasCar: 1
-hasElectricCar: 1
+cityName: lol234
+hasBicycle: 0
+hasCar: 0
+hasElectricCar: 0
 daysWithZeroPollution: 0
