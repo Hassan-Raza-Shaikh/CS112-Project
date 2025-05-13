@@ -2401,7 +2401,7 @@ bool load_game(string filename, int& level, int& ecopoints, int& funds, int& hea
     try {
         ifstream file(filename);
         if (!file.is_open()) {
-            throw FileException("Could not open save file: " + filename);
+            return false;  // Return false instead of throwing exception
         }
 
         // Initialize default values
@@ -2424,11 +2424,6 @@ bool load_game(string filename, int& level, int& ecopoints, int& funds, int& hea
 
         string line;
         while (getline(file, line)) {
-            if (file.fail()) {
-                throw FileException("Error reading from save file: " + filename);
-            }
-
-            // Skip empty lines
             if (line.empty()) continue;
 
             stringstream ss(line);
@@ -2440,103 +2435,45 @@ bool load_game(string filename, int& level, int& ecopoints, int& funds, int& hea
                 label.pop_back();
             }
 
-            try {
-                if (label == "level") {
-                    if (!(ss >> level) || level < 1) throw FileException("Invalid level value");
+            if (label == "level") ss >> level;
+            else if (label == "ecopoints") ss >> ecopoints;
+            else if (label == "funds") ss >> funds;
+            else if (label == "health") ss >> health;
+            else if (label == "hunger") ss >> hunger;
+            else if (label == "houseUp") ss >> houseUp;
+            else if (label == "hospitalUp") ss >> hospitalUp;
+            else if (label == "officeUp") ss >> officeUp;
+            else if (label == "restaurantUp") ss >> restaurantUp;
+            else if (label == "schoolUp") ss >> schoolUp;
+            else if (label == "bankUp") ss >> bankUp;
+            else if (label == "casinoUp") ss >> casinoUp;
+            else if (label == "envUp") ss >> envUp;
+            else if (label == "recUp") ss >> recUp;
+            else if (label == "gardenUp") ss >> gardenUp;
+            else if (label == "vehicle") ss >> vehicle;
+            else if (label == "pollutionlevel") ss >> pollutionlevel;
+            else if (label == "lastSaveTime") ss >> lastSaveTime;
+            else if (label == "levelPoints") ss >> levelPoints;
+            else if (label == "hasLoan") ss >> hasLoan;
+            else if (label == "loanAmount") ss >> loanAmount;
+            else if (label == "lenderName") ss >> lenderName;
+            else if (label == "loanStartDate") ss >> loanStartDate;
+            else if (label == "cityName") {
+                getline(ss, cityName);
+                if (!cityName.empty() && cityName[0] == ' ') {
+                    cityName = cityName.substr(1);
                 }
-                else if (label == "ecopoints") {
-                    if (!(ss >> ecopoints) || ecopoints < 0) throw FileException("Invalid ecopoints value");
-                }
-                else if (label == "funds") {
-                    if (!(ss >> funds) || funds < 0) throw FileException("Invalid funds value");
-                }
-                else if (label == "health") {
-                    if (!(ss >> health) || health < 0 || health > MAX_HEALTH) throw FileException("Invalid health value");
-                }
-                else if (label == "hunger") {
-                    if (!(ss >> hunger) || hunger < 0 || hunger > MAX_HUNGER) throw FileException("Invalid hunger value");
-                }
-                else if (label == "houseUp") {
-                    if (!(ss >> houseUp) || houseUp < 1) throw FileException("Invalid houseUp value");
-                }
-                else if (label == "hospitalUp") {
-                    if (!(ss >> hospitalUp) || hospitalUp < 1) throw FileException("Invalid hospitalUp value");
-                }
-                else if (label == "officeUp") {
-                    if (!(ss >> officeUp) || officeUp < 1) throw FileException("Invalid officeUp value");
-                }
-                else if (label == "restaurantUp") {
-                    if (!(ss >> restaurantUp) || restaurantUp < 1) throw FileException("Invalid restaurantUp value");
-                }
-                else if (label == "schoolUp") {
-                    if (!(ss >> schoolUp) || schoolUp < 1) throw FileException("Invalid schoolUp value");
-                }
-                else if (label == "bankUp") {
-                    if (!(ss >> bankUp) || bankUp < 1) throw FileException("Invalid bankUp value");
-                }
-                else if (label == "casinoUp") {
-                    if (!(ss >> casinoUp) || casinoUp < 1) throw FileException("Invalid casinoUp value");
-                }
-                else if (label == "envUp") {
-                    if (!(ss >> envUp) || envUp < 1) throw FileException("Invalid envUp value");
-                }
-                else if (label == "recUp") {
-                    if (!(ss >> recUp) || recUp < 1) throw FileException("Invalid recUp value");
-                }
-                else if (label == "gardenUp") {
-                    if (!(ss >> gardenUp) || gardenUp < 1) throw FileException("Invalid gardenUp value");
-                }
-                else if (label == "vehicle") {
-                    if (!(ss >> vehicle) || vehicle < 0) throw FileException("Invalid vehicle value");
-                }
-                else if (label == "pollutionlevel") {
-                    if (!(ss >> pollutionlevel) || pollutionlevel < 0) throw FileException("Invalid pollutionlevel value");
-                }
-                else if (label == "lastSaveTime") {
-                    if (!(ss >> lastSaveTime)) throw FileException("Invalid lastSaveTime value");
-                }
-                else if (label == "levelPoints") {
-                    if (!(ss >> levelPoints) || levelPoints < 0) throw FileException("Invalid levelPoints value");
-                }
-                else if (label == "hasLoan") {
-                    if (!(ss >> hasLoan)) throw FileException("Invalid hasLoan value");
-                }
-                else if (label == "loanAmount") {
-                    if (!(ss >> loanAmount) || loanAmount < 0) throw FileException("Invalid loanAmount value");
-                }
-                else if (label == "lenderName") {
-                    if (!(ss >> lenderName)) throw FileException("Invalid lenderName value");
-                }
-                else if (label == "loanStartDate") {
-                    if (!(ss >> loanStartDate)) throw FileException("Invalid loanStartDate value");
-                }
-                else if (label == "cityName") {
-                    // Handle city name with spaces
-                    getline(ss, cityName);
-                    if (!cityName.empty() && cityName[0] == ' ') {
-                        cityName = cityName.substr(1);
-                    }
-                    if (cityName.empty()) throw FileException("Invalid cityName value");
-                }
-                else if (label == "daysWithZeroPollution") {
-                    if (!(ss >> daysWithZeroPollution) || daysWithZeroPollution < 0) throw FileException("Invalid daysWithZeroPollution value");
-                }
-            } catch (const exception& e) {
-                throw FileException(string("Error parsing ") + label + ": " + e.what());
             }
+            else if (label == "daysWithZeroPollution") ss >> daysWithZeroPollution;
+            else if (label == "hasBicycle") ss >> hasBicycle;
+            else if (label == "hasCar") ss >> hasCar;
+            else if (label == "hasElectricCar") ss >> hasElectricCar;
         }
 
         file.close();
-        if (file.fail()) {
-            throw FileException("Error closing save file: " + filename);
-        }
-
-        return true;
-    } catch (const FileException& e) {
-        cerr << "Error loading game: " << e.what() << endl;
-        return false;
+        return true;  // Return true if file was successfully read
     } catch (const exception& e) {
-        cerr << "Unexpected error loading game: " << e.what() << endl;
+        cerr << "Error loading game: " << e.what() << endl;
         return false;
     }
 }
