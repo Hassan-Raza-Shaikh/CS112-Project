@@ -1,8 +1,8 @@
-level: 1
-ecopoints: 30
-funds: 120
-health: 100
-hunger: 98
+level: 3
+ecopoints: 230
+funds: 7744
+health: 94
+hunger: 76
 houseUp: 1
 hospitalUp: 1
 officeUp: 1
@@ -11,14 +11,18 @@ schoolUp: 1
 bankUp: 1
 casinoUp: 1
 envUp: 1
-recUp: 1
+recUp: 2
 gardenUp: 1
 vehicle: 0
-pollutionlevel: 0
-lastSaveTime: 1746447697
-levelPoints: 30
+pollutionlevel: 15
+lastSaveTime: 1747083407
+levelPoints: 0
 hasLoan: 0
 loanAmount: 0
 lenderName: 
 loanStartDate: 
-cityName: GIKI KPK
+cityName: Titans
+hasBicycle: 0
+hasCar: 0
+hasElectricCar: 0
+daysWithZeroPollution: 1
