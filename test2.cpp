@@ -12,7 +12,6 @@
 #include <set>
 #include "instructions.cpp"
 #include <random>
-#include <ctime>
 #include <functional>
 #include <vector>
 #include <filesystem>
@@ -54,18 +53,13 @@ void generateNews(const string& category, const string& title, const string& con
 void generateRandomNews(int level, int ecoPoints, int pollutionLevel, const string& cityName);
 string getCurrentTimeStr();
 
-/**
- * @file code_wd_buildings.cpp
- * @brief Implementation of the Eco City game buildings and game mechanics
- * 
- * This file contains the implementation of various buildings in the Eco City game,
- * including their functionality, interactions, and game state management.
- */
+
+ 
+ 
 
 // --------- Game Constants ---------
-/**
- * @brief Cost and reward constants for various game actions
- */
+
+
 const int HOUSE_EAT_COST = 20;              ///< Cost to eat at home
 const int HOSPITAL_TREATMENT_COST = 50;     ///< Cost for hospital treatment
 const int OFFICE_WORK_REWARD = 100;         ///< Reward for working at office
@@ -77,9 +71,7 @@ const int CASINO_BET_AMOUNT = 100;          ///< Amount to bet at casino
 const int CASINO_WIN_REWARD = 200;          ///< Reward for winning at casino
 const int HOUSE_RELAX_ECO_POINTS = 5;       ///< Eco points gained from relaxing at home
 
-/**
- * @brief Health and hunger constants
- */
+
 const int MAX_HEALTH = 100;                 ///< Maximum health value
 const int MAX_HUNGER = 100;                 ///< Maximum hunger value
 const int HUNGER_DECREASE_RATE = 2;         ///< Hunger decrease per minute
@@ -90,29 +82,21 @@ const int HOSPITAL_HEALTH_RESTORE = 30;     ///< Health restored at hospital
 const int HOUSE_SLEEP_HEALTH_RESTORE = 20;  ///< Health restored while sleeping
 const int HOUSE_EAT_HUNGER_RESTORE = 30;    ///< Hunger restored while eating
 
-/**
- * @brief Level and pollution constants
- */
+
 const int LEVEL_POINTS_PER_ECO = 1;         ///< Level points per eco point
 const int POLLUTION_PENALTY = 2;            ///< Pollution penalty multiplier
 const int LEVEL_UP_THRESHOLD = 100;         ///< Level points needed to level up
 
-/**
- * @brief Win condition constants
- */
+
 const int WIN_REQUIRED_LEVEL = 10;          ///< Required level to win
 const int WIN_REQUIRED_DAYS = 5;            ///< Required days with zero pollution to win
 
-/**
- * @brief Transportation delay constants in seconds
- */
+
 const int WALK_DELAY = 10;                  ///< Walking delay in seconds
 const int CYCLE_DELAY = 5;                  ///< Cycling delay in seconds
 const int CAR_DELAY = 0;                    ///< Car delay in seconds
 
-/**
- * @brief Periodic reward constants
- */
+
 const int PERIODIC_FUNDS_REWARD = 10;       ///< Funds gained periodically
 const int PERIODIC_FUNDS_INTERVAL = 60;     ///< Interval for periodic rewards in seconds
 const int OFFLINE_BONUS_PER_DAY = 1000;     ///< Offline bonus per day
@@ -179,7 +163,6 @@ string getCurrentDateStrLoan() {
 
 int daysBetween(const string& start, const string& end) {
     try {
-        // Parse dates manually since strptime is not available on Windows
         int startYear, startMonth, startDay;
         int endYear, endMonth, endDay;
         
@@ -584,7 +567,6 @@ public:
     void enter() override {
         clearScreen();
         cout << HOUSE_ART;
-        cout << "[DEBUG] Entering House: health=" << health << ", hunger=" << hunger << endl;
         while (true) {
             displayStatus(funds, health, hunger, level, levelPoints, ecoPoints, pollutionLevel, cityName);
             cout << "\n🏠 Welcome to your House (Level " << upgrade.level << ")!\n";
@@ -612,7 +594,6 @@ public:
                     else cout << "Invalid option. Try again!\n";
                     break;
                 case 5:
-                    cout << "[DEBUG] Leaving House: health=" << health << ", hunger=" << hunger << endl;
                     cout << "🚶 Leaving House...\n";
                     clearScreen();
                     return;
@@ -651,12 +632,11 @@ private:
     }
 };
 
-/**
- * @class Hospital
- * @brief Represents the hospital building
- * 
- * The hospital provides treatment services that cost funds.
- */
+
+ // Hospital
+ // Represents the hospital building 
+ // The hospital provides treatment services that cost funds.
+ 
 class Hospital : public Building {
 public:
     Hospital(int& f, int& h, int& hu, int& l, int& lp, int& e, int& p, const string& cn, int up=1) 
@@ -698,12 +678,10 @@ public:
     }
 };
 
-/**
- * @class Office
- * @brief Represents the office building
- * 
- * The office allows players to work and earn funds.
- */
+//Office
+// Represents the office building
+// The office allows players to work and earn funds.
+
 class Office : public Building {
 private:
     // Inner class to handle math problems - encapsulation of problem-related functionality
@@ -893,13 +871,10 @@ public:
         cout << "🍽️ Working made you hungry! (-" << hungerReduction << " hunger)\n";
     }
 };
-
-/**
- * @class Restaurant
- * @brief Represents the restaurant building
- * 
- * The restaurant provides meals that cost funds but give eco points.
- */
+ // Restaurant
+ // Represents the restaurant building
+ // The restaurant provides meals that cost funds but give eco points.
+ 
 class Restaurant {
     private:
         int& funds;
@@ -918,7 +893,6 @@ class Restaurant {
         void enter() {
             clearScreen();
             cout << RESTAURANT_ART;
-            cout << "[DEBUG] Entering Restaurant: hunger=" << hunger << endl;
             while (true) {
                 displayStatus(funds, health, hunger, level, levelPoints, ecoPoints, pollutionLevel, cityName);
                 cout << "\n🍴 Welcome to the Restaurant (Level " << upgrade.level << ")!\n";
@@ -968,7 +942,6 @@ class Restaurant {
                         else cout << "Invalid option. Try again!\n";
                         break;
                     case 5:
-                        cout << "[DEBUG] Leaving Restaurant: hunger=" << hunger << endl;
                         cout << "🚶 Leaving Restaurant...\n";
                         clearScreen();
                         return;
@@ -981,12 +954,10 @@ class Restaurant {
         int getUpgradeLevel() const { return upgrade.level; }
     };
 
-/**
- * @class School
- * @brief Represents the school building
- * 
- * The school allows players to study and gain eco points.
- */
+// School
+// Represents the school building
+// The school allows players to study and gain eco points.
+
 class School {
     private:
         int& funds;
@@ -1168,12 +1139,10 @@ class School {
         int getUpgradeLevel() const { return upgrade.level; }
     };
 
-/**
- * @class Bank
- * @brief Represents the bank building
- * 
- * The bank allows players to earn interest on their funds.
- */
+// Bank
+    // Represents the bank building
+//The bank allows players to earn interest on their funds.
+
 class Bank {
     private:
         int& funds;
@@ -1249,12 +1218,10 @@ class Bank {
         int getUpgradeLevel() const { return upgrade.level; }
     };
 
-/**
- * @class Casino
- * @brief Represents the casino building
- * 
- * The casino allows players to gamble their funds for a chance to win more.
- */
+// Casino
+//Represents the casino building
+//  The casino allows players to gamble their funds for a chance to win more.
+
 class Casino {
     private:
         int& funds;
@@ -1434,7 +1401,6 @@ private:
     }
 };
 
-// Add this function before the Summit class
 vector<string> findFiles(const string& prefix) {
     vector<string> files;
     ifstream file;
@@ -1739,7 +1705,7 @@ public:
                     continue;
                 }
                 
-                // Try to find the lender's file
+                //  find the lender's file
                 string lenderFile = lenderName + "_" + secondPin + ".txt";
                 ifstream checkFile(lenderFile);
                 if (!checkFile.good()) {
@@ -1869,7 +1835,7 @@ public:
     }
 };
 
-// --------- New Building: Recycling Center ---------
+// --------- Recycling Center ---------
 class RecyclingCenter {
 private:
     int& funds;
@@ -2372,7 +2338,7 @@ bool load_game(string filename, int& level, int& ecopoints, int& funds, int& hea
     try {
         ifstream file(filename);
         if (!file.is_open()) {
-            return false;  // Return false instead of throwing exception
+            return false;  
         }
 
         // Initialize default values
@@ -2677,7 +2643,6 @@ void menu(int &funds, int &vehicle, int &level, time_t &lastUpdateTime, int &eco
     }
 }
 
-// Move handleTransportChoice definition here, just before menu
 void handleTransportChoice(int& vehicle, int level, int& funds) {
     try {
                 cout << "\n=== Transport Options ===\n";
