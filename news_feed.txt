@@ -331,3 +331,39 @@ Welcome to your eco-city! Start building a sustainable future by making environm
 [2025-05-10 07:33] 🏙️ City Development - New City Established
 A new eco-friendly city has been established. Citizens are encouraged to participate in sustainable development.
 
+[2025-05-13 11:01] 🌱 Environmental - Local Wildlife Returns to City Parks
+Environmental conditions in Lahore continue to improve. Local initiatives are showing positive results.
+
+[2025-05-13 11:02] 🌍 Global - Worldwide Pollution Reduction Goals Met
+Global environmental efforts are making progress. International cooperation is key to success.
+
+[2025-05-13 11:25] 🌱 Environmental - Solar Panel Installation Reaches New Heights
+Environmental conditions in GIKI continue to improve. Local initiatives are showing positive results.
+
+[2025-05-13 11:25] 🌱 Environmental - New Trees Planted in GIKI
+The Environment Center has successfully planted new trees, contributing to the city's green initiative. Total trees planted: 1
+
+[2025-05-13 11:25] 🌱 Environmental - New Trees Planted in GIKI
+The Environment Center has successfully planted new trees, contributing to the city's green initiative. Total trees planted: 2
+
+[2025-05-13 11:25] 🌱 Environmental - New Trees Planted in GIKI
+The Environment Center has successfully planted new trees, contributing to the city's green initiative. Total trees planted: 3
+
+[2025-05-13 11:25] 🌱 Environmental - New Trees Planted in GIKI
+The Environment Center has successfully planted new trees, contributing to the city's green initiative. Total trees planted: 4
+
+[2025-05-13 11:25] 🌱 Environmental - New Trees Planted in GIKI
+The Environment Center has successfully planted new trees, contributing to the city's green initiative. Total trees planted: 5
+
+[2025-05-13 11:25] 🌱 Environmental - New Trees Planted in GIKI
+The Environment Center has successfully planted new trees, contributing to the city's green initiative. Total trees planted: 6
+
+[2025-05-13 11:25] 🌱 Environmental - New Trees Planted in GIKI
+The Environment Center has successfully planted new trees, contributing to the city's green initiative. Total trees planted: 7
+
+[2025-05-13 11:25] 🌱 Environmental - New Trees Planted in GIKI
+The Environment Center has successfully planted new trees, contributing to the city's green initiative. Total trees planted: 8
+
+[2025-05-13 11:50] 🌱 Environmental - Recycling Initiative Success in GIKI
+The Recycling Center has successfully processed waste, reducing pollution from 55 to 35
+

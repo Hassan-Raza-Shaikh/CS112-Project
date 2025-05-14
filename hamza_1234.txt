@@ -1,8 +1,8 @@
 level: 7
 ecopoints: 690
-funds: 4628
-health: 97
-hunger: 60
+funds: 4673
+health: 96
+hunger: 58
 houseUp: 2
 hospitalUp: 1
 officeUp: 2
@@ -14,9 +14,9 @@ envUp: 2
 recUp: 2
 gardenUp: 1
 vehicle: 2
-pollutionlevel: 65
+pollutionlevel: 35
 lastSaveTime: 1746807542
-levelPoints: 60
+levelPoints: 20
 hasLoan: 0
 loanAmount: 0
 lenderName: 
@@ -25,3 +25,4 @@ cityName: GIKI
 hasBicycle: 1
 hasCar: 1
 hasElectricCar: 0
+daysWithZeroPollution: 0
