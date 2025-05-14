@@ -556,6 +556,8 @@ public:
 
     virtual void enter() = 0;  // Pure virtual function
     int getUpgradeLevel() const { return upgrade.level; }
+
+    ~Building() {}
 };
 
 // --------- Building Classes ---------
@@ -630,6 +632,8 @@ private:
         updateLevel(level, levelPoints, ecoPoints, pollutionLevel);
         cout << "You gained " << (HOUSE_RELAX_ECO_POINTS * upgrade.level) << " eco points!\n";
     }
+    public:
+    ~House() {}
 };
 
 
@@ -676,6 +680,7 @@ public:
             }
         }
     }
+    ~Hospital() {}
 };
 
 //Office
@@ -870,6 +875,7 @@ public:
         cout << "\nYou solved " << correctAnswers << " out of " << problemsToSolve << " problems correctly!\n";
         cout << "🍽️ Working made you hungry! (-" << hungerReduction << " hunger)\n";
     }
+    ~Office() {}
 };
  // Restaurant
  // Represents the restaurant building
@@ -952,6 +958,7 @@ class Restaurant {
         }
 
         int getUpgradeLevel() const { return upgrade.level; }
+        ~Restaurant() {}
     };
 
 // School
@@ -1137,6 +1144,7 @@ class School {
         }
 
         int getUpgradeLevel() const { return upgrade.level; }
+        ~School() {}
     };
 
 // Bank
@@ -1216,6 +1224,7 @@ class Bank {
         }
 
         int getUpgradeLevel() const { return upgrade.level; }
+        ~Bank() {}
     };
 
 // Casino
@@ -1299,6 +1308,7 @@ class Casino {
         }
     public:
         int getUpgradeLevel() const { return upgrade.level; }
+        ~Casino() {}
     };
 
 // --------- New Environment Class ---------
@@ -1399,6 +1409,8 @@ private:
             cout << "✨ Your city is pollution-free!\n";
         }
     }
+    public:
+        ~Environment() {}
 };
 
 vector<string> findFiles(const string& prefix) {
@@ -1833,6 +1845,7 @@ public:
             }
         }
     }
+    ~Summit() {}
 };
 
 // --------- Recycling Center ---------
@@ -1893,6 +1906,7 @@ public:
     }
 
     int getUpgradeLevel() const { return upgrade.level; }
+    ~RecyclingCenter() {}
 };
 
 // --------- New Building: Community Garden ---------
@@ -1939,6 +1953,7 @@ public:
     }
 
     int getUpgradeLevel() const { return upgrade.level; }
+    ~CommunityGarden() {}
 };
 
 // --------- Environmental News Feed ---------
