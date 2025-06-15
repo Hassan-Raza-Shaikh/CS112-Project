@@ -1,8 +1,8 @@
 level: 7
-ecopoints: 690
-funds: 4673
-health: 96
-hunger: 58
+ecopoints: 700
+funds: 4603
+health: 99
+hunger: 89
 houseUp: 2
 hospitalUp: 1
 officeUp: 2
@@ -14,9 +14,9 @@ envUp: 2
 recUp: 2
 gardenUp: 1
 vehicle: 2
-pollutionlevel: 35
+pollutionlevel: 55
 lastSaveTime: 1746807542
-levelPoints: 20
+levelPoints: 90
 hasLoan: 0
 loanAmount: 0
 lenderName: 
